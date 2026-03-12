@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-expo-app@latest . --template blank)",
+      "Bash(npx create-expo-app@latest . --template blank --yes)",
+      "Bash(npx create-expo-app@latest myapp --template blank)",
+      "Bash(mv myapp/* .)",
+      "Bash(mv myapp/.* .)",
+      "Bash(rmdir myapp:*)",
+      "Bash(npx expo:*)",
+      "Bash(npm install:*)"
+    ]
+  }
+}
