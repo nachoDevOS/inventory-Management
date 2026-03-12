@@ -1,13 +1,3 @@
-/**
- * ArticuloFormScreen — Crear / editar artículo
- *
- * Campos:
- *  - Imagen (galería o cámara)
- *  - Nombre *
- *  - Detalle / descripción
- *  - Categoría (selector)
- *  - Código de barras (manual o escaneo con cámara)
- */
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
@@ -23,7 +13,10 @@ export default function ArticuloFormScreen({ route, navigation }) {
   const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   const articuloExistente = route.params?.articulo;
-  const [form, setForm] = useState({ nombre: '', detalle: '', imagen: '', idcategoria: null, codigo_barras: '' });
+  const [form, setForm] = useState({
+    nombre: '', detalle: '', imagen: '',
+    idcategoria: null, codigo_barras: '', sku: ''
+  });
   const [categorias, setCategorias] = useState([]);
   const [modalCat, setModalCat] = useState(false);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
@@ -37,6 +30,7 @@ export default function ArticuloFormScreen({ route, navigation }) {
         imagen: articuloExistente.imagen || '',
         idcategoria: articuloExistente.idcategoria || null,
         codigo_barras: articuloExistente.codigo_barras || '',
+        sku: articuloExistente.sku || '',
       });
       if (articuloExistente.idcategoria) {
         db.getFirstAsync('SELECT * FROM categorias WHERE idcategoria = ?', [articuloExistente.idcategoria])
@@ -69,13 +63,13 @@ export default function ArticuloFormScreen({ route, navigation }) {
     if (!form.nombre.trim()) { Alert.alert('Error', 'El nombre del artículo es obligatorio'); return; }
     if (articuloExistente) {
       await db.runAsync(
-        'UPDATE articulos SET nombre=?, detalle=?, imagen=?, idcategoria=?, codigo_barras=? WHERE idarticulo=?',
-        [form.nombre, form.detalle, form.imagen, form.idcategoria, form.codigo_barras, articuloExistente.idarticulo]
+        'UPDATE articulos SET nombre=?, detalle=?, imagen=?, idcategoria=?, codigo_barras=?, sku=? WHERE idarticulo=?',
+        [form.nombre, form.detalle, form.imagen, form.idcategoria, form.codigo_barras, form.sku, articuloExistente.idarticulo]
       );
     } else {
       await db.runAsync(
-        'INSERT INTO articulos (nombre, detalle, imagen, idcategoria, codigo_barras) VALUES (?,?,?,?,?)',
-        [form.nombre, form.detalle, form.imagen, form.idcategoria, form.codigo_barras]
+        'INSERT INTO articulos (nombre, detalle, imagen, idcategoria, codigo_barras, sku) VALUES (?,?,?,?,?,?)',
+        [form.nombre, form.detalle, form.imagen, form.idcategoria, form.codigo_barras, form.sku]
       );
     }
     navigation.goBack();
@@ -83,6 +77,7 @@ export default function ArticuloFormScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+
       {/* ── Imagen ── */}
       <Text style={styles.label}>Imagen del Artículo</Text>
       <View style={styles.imgContainer}>
@@ -108,26 +103,17 @@ export default function ArticuloFormScreen({ route, navigation }) {
       {/* ── Nombre ── */}
       <View style={styles.campo}>
         <Text style={styles.label}>Nombre *</Text>
-        <TextInput
-          style={styles.input}
-          value={form.nombre}
-          onChangeText={v => set('nombre', v)}
-          placeholder="Nombre del artículo"
-          placeholderTextColor={COLORS.textLight}
-        />
+        <TextInput style={styles.input} value={form.nombre} onChangeText={v => set('nombre', v)}
+          placeholder="Nombre del artículo" placeholderTextColor={COLORS.textLight} />
       </View>
 
       {/* ── Detalle ── */}
       <View style={styles.campo}>
         <Text style={styles.label}>Detalle / Descripción</Text>
-        <TextInput
-          style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-          value={form.detalle}
-          onChangeText={v => set('detalle', v)}
-          placeholder="Descripción del artículo"
-          placeholderTextColor={COLORS.textLight}
-          multiline numberOfLines={3}
-        />
+        <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+          value={form.detalle} onChangeText={v => set('detalle', v)}
+          placeholder="Descripción del artículo" placeholderTextColor={COLORS.textLight}
+          multiline numberOfLines={3} />
       </View>
 
       {/* ── Categoría ── */}
@@ -146,20 +132,26 @@ export default function ArticuloFormScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ── Código de barras ── */}
-      <View style={styles.campo}>
-        <Text style={styles.label}>Código de Barras / SKU</Text>
-        <TextInput
-          style={styles.input}
-          value={form.codigo_barras}
-          onChangeText={v => set('codigo_barras', v)}
-          placeholder="Escanea o escribe el código"
-          placeholderTextColor={COLORS.textLight}
-          keyboardType="default"
-        />
-        <Text style={styles.hint}>
-          Puedes escribir el código manualmente o usar un escáner Bluetooth.
-        </Text>
+      {/* ── Código de Barras y SKU en fila ── */}
+      <View style={styles.dosCampos}>
+        <View style={[styles.campo, { flex: 1 }]}>
+          <Text style={styles.label}>Código de Barras</Text>
+          <TextInput style={styles.input} value={form.codigo_barras}
+            onChangeText={v => set('codigo_barras', v)}
+            placeholder="Ej: 7501234567890"
+            placeholderTextColor={COLORS.textLight}
+            keyboardType="default" />
+          <Text style={styles.hint}>Escanea o escribe</Text>
+        </View>
+        <View style={[styles.campo, { flex: 1 }]}>
+          <Text style={styles.label}>SKU / Código Interno</Text>
+          <TextInput style={styles.input} value={form.sku}
+            onChangeText={v => set('sku', v)}
+            placeholder="Ej: PROD-001"
+            placeholderTextColor={COLORS.textLight}
+            autoCapitalize="characters" />
+          <Text style={styles.hint}>Código propio del negocio</Text>
+        </View>
       </View>
 
       <TouchableOpacity style={styles.btnGuardar} onPress={guardar}>
@@ -179,14 +171,8 @@ export default function ArticuloFormScreen({ route, navigation }) {
             data={[{ idcategoria: null, nombre: 'Sin categoría', color: COLORS.textLight }, ...categorias]}
             keyExtractor={c => String(c.idcategoria)}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.modalItem}
-                onPress={() => {
-                  set('idcategoria', item.idcategoria);
-                  setCategoriaSeleccionada(item.idcategoria ? item : null);
-                  setModalCat(false);
-                }}
-              >
+              <TouchableOpacity style={styles.modalItem}
+                onPress={() => { set('idcategoria', item.idcategoria); setCategoriaSeleccionada(item.idcategoria ? item : null); setModalCat(false); }}>
                 <View style={styles.catSelRow}>
                   <View style={[styles.catDot, { backgroundColor: item.color }]} />
                   <Text style={styles.modalItemText}>{item.nombre}</Text>
@@ -210,14 +196,12 @@ function makeStyles(C) {
     imgButtons: { flex: 1, gap: 6 },
     btnImg: { backgroundColor: C.card, borderRadius: 8, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: C.border },
     btnImgText: { fontSize: 13, color: C.primary, fontWeight: '500' },
+    dosCampos: { flexDirection: 'row', gap: 10 },
     campo: { marginBottom: 14 },
     label: { fontSize: 13, fontWeight: '600', color: C.text, marginBottom: 4 },
     input: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10, fontSize: 14, color: C.text },
     hint: { fontSize: 11, color: C.textLight, marginTop: 3 },
-    selectorBtn: {
-      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12,
-    },
+    selectorBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12 },
     selectorPlaceholder: { fontSize: 14, color: C.textLight },
     catSelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     catSelText: { fontSize: 14, color: C.text, fontWeight: '500' },
