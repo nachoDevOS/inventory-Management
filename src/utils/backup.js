@@ -32,7 +32,7 @@ export const exportarBackup = async (db) => {
   const fecha = new Date().toISOString().slice(0, 10);
   const path = `${FileSystem.cacheDirectory}backup_inventario_${fecha}.json`;
 
-  await FileSystem.writeAsStringAsync(path, json, { encoding: FileSystem.EncodingType.UTF8 });
+  await FileSystem.writeAsStringAsync(path, json, { encoding: 'utf8' });
 
   const disponible = await Sharing.isAvailableAsync();
   if (disponible) {
@@ -61,7 +61,7 @@ export const importarBackup = async (db) => {
   if (resultado.canceled || !resultado.assets?.[0]) return false;
 
   const uri = resultado.assets[0].uri;
-  const contenido = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.UTF8 });
+  const contenido = await FileSystem.readAsStringAsync(uri, { encoding: 'utf8' });
   const datos = JSON.parse(contenido);
 
   if (!datos.tablas) throw new Error('Archivo de backup inválido');

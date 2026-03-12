@@ -1,11 +1,12 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { ActivityIndicator, View, Text, Image, StyleSheet } from 'react-native';
-import { SQLiteProvider } from 'expo-sqlite';
+import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initDatabase } from './src/database/db';
 import { ThemeProvider } from './src/context/ThemeContext';
+import LicenciaScreen from './src/screens/LicenciaScreen';
 
 function SplashScreen() {
   return (
@@ -22,15 +23,49 @@ function SplashScreen() {
   );
 }
 
+/**
+ * LicenciaGate — Verifica si la app está activada.
+ * Si no, muestra la pantalla de activación.
+ * Si sí, muestra el contenido normal.
+ */
+function LicenciaGate({ children }) {
+  const db = useSQLiteContext();
+  const [estado, setEstado] = useState('verificando'); // 'verificando' | 'bloqueada' | 'activa'
+
+  useEffect(() => {
+    db.getFirstAsync("SELECT valor FROM configuracion WHERE clave = 'licencia_activada'")
+      .then(row => {
+        setEstado(row?.valor === '1' ? 'activa' : 'bloqueada');
+      })
+      .catch(() => setEstado('bloqueada'));
+  }, []);
+
+  if (estado === 'verificando') {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F1F5F9' }}>
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
+  }
+
+  if (estado === 'bloqueada') {
+    return <LicenciaScreen onActivar={() => setEstado('activa')} />;
+  }
+
+  return children;
+}
+
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Suspense fallback={<SplashScreen />}>
         <SQLiteProvider databaseName="gestion.db" onInit={initDatabase} useSuspense>
           <ThemeProvider>
-            <NavigationContainer>
-              <AppNavigator />
-            </NavigationContainer>
+            <LicenciaGate>
+              <NavigationContainer>
+                <AppNavigator />
+              </NavigationContainer>
+            </LicenciaGate>
           </ThemeProvider>
         </SQLiteProvider>
       </Suspense>

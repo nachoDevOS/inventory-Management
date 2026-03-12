@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Inventory Management",
-    "slug": "inventory-management",
+    "slug": "inventory-mgmt-sd",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -40,8 +40,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "fc97ab63-389e-44d8-8b38-c35db294a9ee"
+        "projectId": "b8ed9c7b-3b08-4513-8447-3b0872e9fd9f"
       }
-    }
+    },
+    "owner": "nachodevos"
   }
 }
