@@ -1,17 +1,18 @@
 /**
- * licencia.js — Sistema de activación con vencimiento de 1 año
+ * licencia.js — Sistema de activación con vencimiento de 1 año + binding por dispositivo
  *
  * Formato de clave: XXXX-XXXX-XXXX (12 chars alfanuméricos en 3 grupos de 4)
  *
  * Algoritmo:
- *   - Chars 1–8: hash(SECRET + serial) en base36
+ *   - Chars 1–8: hash(SECRET + serial + deviceCode) en base36
  *   - Chars 9–12: número de serie en base36
  *
  * El vencimiento se calcula desde la fecha de activación guardada en SQLite.
- * No requiere internet.
+ * No requiere internet. La clave solo funciona en el dispositivo para el que fue generada.
  *
  * IMPORTANTE: Cambia SECRET antes de compilar tu APK final.
  */
+import * as Application from 'expo-application';
 
 // ─── CAMBIA ESTO ANTES DE COMPILAR ──────────────────────────────────────────
 const SECRET = 'SD2025GESTION_INVENTARIO';
@@ -26,27 +27,44 @@ function hash32(str) {
 }
 
 /**
- * Valida si una clave de licencia es correcta (solo formato/algoritmo).
+ * Obtiene un código de dispositivo único (androidId en Android).
+ * Devuelve string en mayúsculas, o 'UNKNOWN' si no está disponible.
  */
-export function validarLicencia(rawKey) {
+export async function obtenerDeviceCode() {
+  try {
+    const id = Application.androidId || Application.getAndroidId?.() || '';
+    return (id || 'UNKNOWN').toUpperCase();
+  } catch {
+    return 'UNKNOWN';
+  }
+}
+
+/**
+ * Valida si una clave de licencia es correcta para este dispositivo.
+ * @param {string} rawKey - clave ingresada por el usuario
+ * @param {string} deviceCode - código del dispositivo (de obtenerDeviceCode)
+ */
+export function validarLicencia(rawKey, deviceCode) {
   const key = (rawKey || '').toUpperCase().replace(/[-\s]/g, '');
   if (key.length !== 12) return false;
   const hashPart   = key.slice(0, 8);
   const serialPart = key.slice(8, 12);
   const serial = parseInt(serialPart, 36);
   if (isNaN(serial) || serial <= 0) return false;
-  const expectedHash = hash32(`${SECRET}:${serial}`)
+  const device = (deviceCode || 'UNKNOWN').toUpperCase();
+  const expectedHash = hash32(`${SECRET}:${serial}:${device}`)
     .toString(36).toUpperCase().padStart(8, '0').substring(0, 8);
   return hashPart === expectedHash;
 }
 
 /**
- * Genera una clave para un número de serie dado.
+ * Genera una clave para un número de serie y código de dispositivo dados.
  * Solo usar en tools/generar-licencias.js, nunca en la app.
  */
-export function generarLicencia(serial) {
+export function generarLicencia(serial, deviceCode) {
   if (serial < 1 || serial > 1679615) throw new Error('Serial fuera de rango (1–1.679.615)');
-  const hashStr = hash32(`${SECRET}:${serial}`)
+  const device = (deviceCode || 'UNKNOWN').toUpperCase();
+  const hashStr = hash32(`${SECRET}:${serial}:${device}`)
     .toString(36).toUpperCase().padStart(8, '0').substring(0, 8);
   const serialStr = serial.toString(36).toUpperCase().padStart(4, '0');
   return `${hashStr.slice(0, 4)}-${hashStr.slice(4, 8)}-${serialStr}`;

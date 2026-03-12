@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
+  Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Linking
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
-import { validarLicencia } from '../utils/licencia';
+import { validarLicencia, obtenerDeviceCode } from '../utils/licencia';
+
+const WHATSAPP_NUMBER = '59167285914';
 
 // ── Pantalla de activación ───────────────────────────────────────────────────
 export default function LicenciaScreen({ onActivar }) {
@@ -12,6 +14,11 @@ export default function LicenciaScreen({ onActivar }) {
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
   const [activando, setActivando] = useState(false);
+  const [deviceCode, setDeviceCode] = useState('');
+
+  useEffect(() => {
+    obtenerDeviceCode().then(setDeviceCode);
+  }, []);
 
   const handleKeyChange = (text) => {
     const clean = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -29,8 +36,8 @@ export default function LicenciaScreen({ onActivar }) {
       setError('La clave debe tener 12 caracteres (XXXX-XXXX-XXXX)');
       return;
     }
-    if (!validarLicencia(key)) {
-      setError('Clave inválida. Verifica que la escribiste correctamente.');
+    if (!validarLicencia(key, deviceCode)) {
+      setError('Clave inválida o no corresponde a este dispositivo.');
       return;
     }
     setActivando(true);
@@ -62,11 +69,30 @@ export default function LicenciaScreen({ onActivar }) {
         <Text style={styles.appName}>Inventory Management</Text>
         <Text style={styles.subtitle}>Solución Digital</Text>
 
+        {/* ── Código de dispositivo ── */}
+        <View style={styles.deviceCard}>
+          <Text style={styles.deviceTitle}>Código de tu dispositivo</Text>
+          <Text style={styles.deviceCode}>{deviceCode || '...'}</Text>
+          <TouchableOpacity
+            style={styles.btnWhatsapp}
+            onPress={() => {
+              const msg = `Hola, necesito una clave de activación para Inventory Management.\n\nMi código de dispositivo es:\n${deviceCode}`;
+              const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+              Linking.openURL(url).catch(() =>
+                Alert.alert('Error', 'No se pudo abrir WhatsApp. Asegúrate de tenerlo instalado.')
+              );
+            }}
+          >
+            <Text style={styles.btnWhatsappText}>💬 Enviar código por WhatsApp</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>🔐 Activación de Licencia</Text>
           <Text style={styles.cardDesc}>
             Esta aplicación requiere una clave de licencia válida. La licencia es válida por{' '}
             <Text style={{ fontWeight: '700', color: '#2563EB' }}>1 año</Text> desde la activación.
+            Cada clave solo funciona en un dispositivo.
           </Text>
 
           <Text style={styles.inputLabel}>Clave de Licencia</Text>
@@ -148,7 +174,19 @@ const styles = StyleSheet.create({
   },
   logo: { width: 64, height: 64 },
   appName: { fontSize: 22, fontWeight: '800', color: '#1E293B', textAlign: 'center' },
-  subtitle: { fontSize: 14, color: '#2563EB', fontWeight: '600', marginTop: 4, marginBottom: 24 },
+  subtitle: { fontSize: 14, color: '#2563EB', fontWeight: '600', marginTop: 4, marginBottom: 16 },
+  deviceCard: {
+    backgroundColor: '#EFF6FF', borderRadius: 12, padding: 16, width: '100%',
+    marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: '#BFDBFE',
+  },
+  deviceTitle: { fontSize: 12, color: '#3B82F6', fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  deviceCode: { fontSize: 20, fontWeight: '800', color: '#1E40AF', letterSpacing: 2, marginBottom: 8 },
+  deviceHint: { fontSize: 12, color: '#64748B', textAlign: 'center', lineHeight: 18 },
+  btnWhatsapp: {
+    marginTop: 10, backgroundColor: '#25D366', borderRadius: 8,
+    paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center',
+  },
+  btnWhatsappText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   card: {
     backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
