@@ -4,6 +4,9 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Text, View } from 'react-native';
 import { COLORS } from '../theme';
 
+// Dashboard
+import DashboardScreen from '../screens/dashboard/DashboardScreen';
+
 // Clientes
 import ClientesScreen from '../screens/clientes/ClientesScreen';
 import ClienteFormScreen from '../screens/clientes/ClienteFormScreen';
@@ -33,6 +36,14 @@ const headerStyle = {
   headerTitleStyle: { fontWeight: 'bold' },
 };
 
+function DashboardStack() {
+  return (
+    <Stack.Navigator screenOptions={headerStyle}>
+      <Stack.Screen name="DashboardMain" component={DashboardScreen} options={{ title: 'Panel de Control' }} />
+    </Stack.Navigator>
+  );
+}
+
 function ClientesStack() {
   return (
     <Stack.Navigator screenOptions={headerStyle}>
@@ -50,6 +61,7 @@ function ArticulosStack() {
       <Stack.Screen name="ArticuloForm" component={ArticuloFormScreen} options={({ route }) => ({ title: route.params?.articulo ? 'Editar Artículo' : 'Nuevo Artículo' })} />
       <Stack.Screen name="ArticuloDetail" component={ArticuloDetailScreen} options={{ title: 'Detalle Artículo' }} />
       <Stack.Screen name="CompraForm" component={CompraFormScreen} options={{ title: 'Agregar Compra / Stock' }} />
+      <Stack.Screen name="VentaDetail" component={VentaDetailScreen} options={{ title: 'Detalle Venta' }} />
     </Stack.Navigator>
   );
 }
@@ -91,6 +103,11 @@ export default function AppNavigator() {
         tabBarIconStyle: { marginBottom: 0 },
       }}
     >
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardStack}
+        options={{ tabBarIcon: ({ color }) => <TabIcon emoji="📊" color={color} />, tabBarLabel: 'Dashboard' }}
+      />
       <Tab.Screen
         name="Clientes"
         component={ClientesStack}
