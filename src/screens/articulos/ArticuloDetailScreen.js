@@ -10,6 +10,9 @@ export default function ArticuloDetailScreen({ route, navigation }) {
   const [articulo, setArticulo] = useState(null);
   const [stock, setStock] = useState(0);
   const [compras, setCompras] = useState([]);
+  const [ventas, setVentas] = useState([]);
+  const [ventaStats, setVentaStats] = useState({ totalUnidades: 0, totalIngresos: 0 });
+  const [tab, setTab] = useState('compras'); // 'compras' | 'ventas'
 
   useFocusEffect(useCallback(() => {
     const cargar = async () => {
@@ -28,6 +31,29 @@ export default function ArticuloDetailScreen({ route, navigation }) {
         'SELECT * FROM compras WHERE idarticulo = ? ORDER BY fecha DESC', [idarticulo]
       );
       setCompras(c);
+
+      // Historial de ventas detallado
+      const v = await db.getAllAsync(`
+        SELECT vd.iddetalle, vd.cantidad, vd.precio_venta, vd.descuento, vd.subtotal,
+               v.idventa, v.fecha,
+               c.nombre as cliente_nombre, c.idcliente
+        FROM venta_detalle vd
+        JOIN ventas v ON v.idventa = vd.idventa
+        JOIN clientes c ON c.idcliente = v.idcliente
+        WHERE vd.idarticulo = ?
+        ORDER BY v.fecha DESC
+      `, [idarticulo]);
+      setVentas(v);
+
+      const stats = await db.getFirstAsync(`
+        SELECT COALESCE(SUM(vd.cantidad), 0) as total_unidades,
+               COALESCE(SUM(vd.subtotal), 0) as total_ingresos
+        FROM venta_detalle vd WHERE vd.idarticulo = ?
+      `, [idarticulo]);
+      setVentaStats({
+        totalUnidades: stats?.total_unidades || 0,
+        totalIngresos: stats?.total_ingresos || 0,
+      });
     };
     cargar();
   }, [idarticulo]));
@@ -35,9 +61,12 @@ export default function ArticuloDetailScreen({ route, navigation }) {
   if (!articulo) return null;
 
   const ultimaCompra = compras[0];
+  const totalComprado = compras.reduce((s, c) => s + c.cantidad, 0);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+
+      {/* ── INFO PRINCIPAL ── */}
       <View style={[styles.card, STYLES.shadow]}>
         {articulo.imagen ? (
           <Image source={{ uri: articulo.imagen }} style={styles.img} />
@@ -49,7 +78,7 @@ export default function ArticuloDetailScreen({ route, navigation }) {
 
         <View style={[styles.stockBadge, { backgroundColor: stock > 0 ? '#DCFCE7' : '#FEE2E2' }]}>
           <Text style={[styles.stockText, { color: stock > 0 ? COLORS.success : COLORS.danger }]}>
-            Stock disponible: {stock} unidades
+            {stock > 0 ? `✅ Stock: ${stock} unidades` : `❌ Sin stock (${stock})`}
           </Text>
         </View>
 
@@ -77,42 +106,160 @@ export default function ArticuloDetailScreen({ route, navigation }) {
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Historial de Compras ({compras.length})</Text>
-      {compras.map(c => (
-        <View key={c.idcompra} style={[styles.compraCard, STYLES.shadow]}>
-          <View style={styles.compraRow}>
-            <Text style={styles.compraFecha}>{c.fecha}</Text>
-            <Text style={styles.compraCantidad}>+{c.cantidad} unid.</Text>
-          </View>
-          <View style={styles.compraRow}>
-            <Text style={styles.compraSub}>Compra: Bs. {Number(c.precio_compra).toFixed(2)}</Text>
-            <Text style={styles.compraSub}>Envío: Bs. {Number(c.precio_envio).toFixed(2)}</Text>
-            <Text style={[styles.compraSub, { color: COLORS.success, fontWeight: '600' }]}>
-              Venta: Bs. {Number(c.precio_venta_sugerido).toFixed(2)}
-            </Text>
-          </View>
-          {c.detalle ? <Text style={styles.compraDetalle}>{c.detalle}</Text> : null}
+      {/* ── RESUMEN RÁPIDO ── */}
+      <View style={[styles.resumenGrid, STYLES.shadow]}>
+        <View style={styles.resumenItem}>
+          <Text style={styles.resumenValor}>{totalComprado}</Text>
+          <Text style={styles.resumenLabel}>Unid. compradas</Text>
         </View>
-      ))}
-      {compras.length === 0 && <Text style={styles.empty}>Sin compras registradas</Text>}
+        <View style={styles.resumenSep} />
+        <View style={styles.resumenItem}>
+          <Text style={[styles.resumenValor, { color: COLORS.danger }]}>{ventaStats.totalUnidades}</Text>
+          <Text style={styles.resumenLabel}>Unid. vendidas</Text>
+        </View>
+        <View style={styles.resumenSep} />
+        <View style={styles.resumenItem}>
+          <Text style={[styles.resumenValor, { color: COLORS.success }]}>
+            Bs. {Number(ventaStats.totalIngresos).toFixed(0)}
+          </Text>
+          <Text style={styles.resumenLabel}>Ingresos totales</Text>
+        </View>
+      </View>
+
+      {/* ── TABS ── */}
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'compras' && styles.tabActivo]}
+          onPress={() => setTab('compras')}
+        >
+          <Text style={[styles.tabText, tab === 'compras' && styles.tabTextActivo]}>
+            📥 Compras ({compras.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'ventas' && styles.tabActivo]}
+          onPress={() => setTab('ventas')}
+        >
+          <Text style={[styles.tabText, tab === 'ventas' && styles.tabTextActivo]}>
+            📤 Ventas ({ventas.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── HISTORIAL COMPRAS ── */}
+      {tab === 'compras' && (
+        <>
+          {compras.map(c => (
+            <View key={c.idcompra} style={[styles.histCard, STYLES.shadow]}>
+              <View style={styles.histHeader}>
+                <Text style={styles.histFecha}>{c.fecha}</Text>
+                <View style={styles.cantBadge}>
+                  <Text style={styles.cantText}>+{c.cantidad} unid.</Text>
+                </View>
+              </View>
+              <View style={styles.histRow}>
+                <DataChip label="Compra" value={`Bs. ${Number(c.precio_compra).toFixed(2)}`} />
+                <DataChip label="Envío" value={`Bs. ${Number(c.precio_envio).toFixed(2)}`} />
+                <DataChip label="Venta sug." value={`Bs. ${Number(c.precio_venta_sugerido).toFixed(2)}`} highlight />
+              </View>
+              {c.detalle ? <Text style={styles.histDetalle}>📝 {c.detalle}</Text> : null}
+            </View>
+          ))}
+          {compras.length === 0 && (
+            <Text style={styles.empty}>Sin compras registradas</Text>
+          )}
+        </>
+      )}
+
+      {/* ── HISTORIAL VENTAS ── */}
+      {tab === 'ventas' && (
+        <>
+          {ventas.length > 0 && (
+            <View style={styles.ventaResumen}>
+              <Text style={styles.ventaResumenText}>
+                Total ingresos: <Text style={{ fontWeight: '800', color: COLORS.success }}>
+                  Bs. {Number(ventaStats.totalIngresos).toFixed(2)}
+                </Text>
+              </Text>
+            </View>
+          )}
+          {ventas.map(v => {
+            const bruto = v.cantidad * v.precio_venta;
+            const ahorro = bruto - v.subtotal;
+            return (
+              <TouchableOpacity
+                key={v.iddetalle}
+                style={[styles.histCard, STYLES.shadow]}
+                onPress={() => navigation.navigate('VentaDetail', { idventa: v.idventa })}
+              >
+                <View style={styles.histHeader}>
+                  <View>
+                    <Text style={styles.histCliente}>👤 {v.cliente_nombre}</Text>
+                    <Text style={styles.histFecha}>{v.fecha}</Text>
+                  </View>
+                  <View style={styles.ventaBadge}>
+                    <Text style={styles.ventaBadgeText}>Venta #{v.idventa}</Text>
+                  </View>
+                </View>
+                <View style={styles.histRow}>
+                  <DataChip label="Cantidad" value={`${v.cantidad} unid.`} />
+                  <DataChip label="Precio unit." value={`Bs. ${Number(v.precio_venta).toFixed(2)}`} />
+                  {v.descuento > 0 && (
+                    <DataChip label="Descuento" value={`${Number(v.descuento).toFixed(0)}%`} danger />
+                  )}
+                </View>
+                {v.descuento > 0 && (
+                  <Text style={styles.ahorroText}>
+                    Ahorro aplicado: Bs. {ahorro.toFixed(2)}
+                  </Text>
+                )}
+                <View style={styles.subtotalRow}>
+                  <Text style={styles.subtotalLabel}>Subtotal:</Text>
+                  <Text style={styles.subtotalValor}>Bs. {Number(v.subtotal).toFixed(2)}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+          {ventas.length === 0 && (
+            <Text style={styles.empty}>Este artículo no ha sido vendido aún</Text>
+          )}
+        </>
+      )}
+
     </ScrollView>
   );
 }
 
-const PrecioItem = ({ label, value, highlight }) => (
-  <View style={styles.precioItem}>
-    <Text style={styles.precioLabel}>{label}</Text>
-    <Text style={[styles.precioValue, highlight && { color: COLORS.success, fontWeight: 'bold' }]}>
-      Bs. {Number(value || 0).toFixed(2)}
-    </Text>
-  </View>
-);
+function PrecioItem({ label, value, highlight }) {
+  return (
+    <View style={styles.precioItem}>
+      <Text style={styles.precioLabel}>{label}</Text>
+      <Text style={[styles.precioValue, highlight && { color: COLORS.success, fontWeight: 'bold' }]}>
+        Bs. {Number(value || 0).toFixed(2)}
+      </Text>
+    </View>
+  );
+}
+
+function DataChip({ label, value, highlight, danger }) {
+  return (
+    <View style={styles.chip}>
+      <Text style={styles.chipLabel}>{label}</Text>
+      <Text style={[
+        styles.chipValue,
+        highlight && { color: COLORS.success },
+        danger && { color: COLORS.danger },
+      ]}>{value}</Text>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
+
   card: {
     backgroundColor: COLORS.card, borderRadius: 12, padding: 16,
-    alignItems: 'center', marginBottom: 16,
+    alignItems: 'center', marginBottom: 14,
   },
   img: { width: 120, height: 120, borderRadius: 12, marginBottom: 10 },
   imgPlaceholder: {
@@ -123,21 +270,70 @@ const styles = StyleSheet.create({
   detalle: { fontSize: 13, color: COLORS.textLight, marginTop: 4, textAlign: 'center' },
   stockBadge: { borderRadius: 8, paddingHorizontal: 16, paddingVertical: 6, marginTop: 12 },
   stockText: { fontSize: 14, fontWeight: '700' },
-  precios: { alignSelf: 'stretch', marginTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10 },
+  precios: {
+    alignSelf: 'stretch', marginTop: 12,
+    borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10,
+  },
   precioItem: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   precioLabel: { fontSize: 13, color: COLORS.textLight },
   precioValue: { fontSize: 13, color: COLORS.text },
-  btnRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  btnRow: { flexDirection: 'row', gap: 10, marginTop: 14, alignSelf: 'stretch' },
   btn: { flex: 1, borderRadius: 8, padding: 10, alignItems: 'center' },
   btnText: { color: COLORS.white, fontWeight: '600', fontSize: 13 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 },
-  compraCard: {
-    backgroundColor: COLORS.card, borderRadius: 8, padding: 10, marginBottom: 6,
+
+  // Resumen rápido
+  resumenGrid: {
+    backgroundColor: COLORS.card, borderRadius: 12, padding: 16,
+    flexDirection: 'row', alignItems: 'center', marginBottom: 14,
   },
-  compraRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2, flexWrap: 'wrap', gap: 4 },
-  compraFecha: { fontSize: 12, color: COLORS.textLight },
-  compraCantidad: { fontSize: 13, fontWeight: '700', color: COLORS.success },
-  compraSub: { fontSize: 12, color: COLORS.textLight },
-  compraDetalle: { fontSize: 11, color: COLORS.textLight, fontStyle: 'italic', marginTop: 4 },
-  empty: { color: COLORS.textLight, fontSize: 13, textAlign: 'center', marginTop: 8 },
+  resumenItem: { flex: 1, alignItems: 'center' },
+  resumenValor: { fontSize: 18, fontWeight: '800', color: COLORS.primary },
+  resumenLabel: { fontSize: 10, color: COLORS.textLight, marginTop: 2, textAlign: 'center' },
+  resumenSep: { width: 1, height: 36, backgroundColor: COLORS.border },
+
+  // Tabs
+  tabRow: {
+    flexDirection: 'row', backgroundColor: COLORS.card,
+    borderRadius: 10, marginBottom: 12, padding: 4,
+  },
+  tab: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
+  tabActivo: { backgroundColor: COLORS.primary },
+  tabText: { fontSize: 13, fontWeight: '600', color: COLORS.textLight },
+  tabTextActivo: { color: '#fff' },
+
+  // Cards historial
+  histCard: { backgroundColor: COLORS.card, borderRadius: 10, padding: 12, marginBottom: 8 },
+  histHeader: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'flex-start', marginBottom: 8,
+  },
+  histFecha: { fontSize: 11, color: COLORS.textLight },
+  histCliente: { fontSize: 13, fontWeight: '600', color: COLORS.text },
+  histRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
+  histDetalle: { fontSize: 11, color: COLORS.textLight, fontStyle: 'italic', marginTop: 4 },
+
+  cantBadge: { backgroundColor: '#DCFCE7', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  cantText: { fontSize: 12, fontWeight: '700', color: COLORS.success },
+  ventaBadge: { backgroundColor: '#DBEAFE', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  ventaBadgeText: { fontSize: 11, fontWeight: '600', color: COLORS.primary },
+
+  chip: { backgroundColor: '#F1F5F9', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  chipLabel: { fontSize: 10, color: COLORS.textLight },
+  chipValue: { fontSize: 12, fontWeight: '700', color: COLORS.text },
+
+  ahorroText: { fontSize: 11, color: COLORS.danger, marginBottom: 4 },
+  subtotalRow: {
+    flexDirection: 'row', justifyContent: 'space-between', marginTop: 6,
+    paddingTop: 6, borderTopWidth: 1, borderTopColor: COLORS.border,
+  },
+  subtotalLabel: { fontSize: 13, color: COLORS.textLight, fontWeight: '600' },
+  subtotalValor: { fontSize: 14, fontWeight: '800', color: COLORS.success },
+
+  ventaResumen: {
+    backgroundColor: '#F0FDF4', borderRadius: 8, padding: 10,
+    marginBottom: 10, alignItems: 'center',
+  },
+  ventaResumenText: { fontSize: 13, color: COLORS.text },
+
+  empty: { color: COLORS.textLight, fontSize: 13, textAlign: 'center', marginTop: 12, marginBottom: 8 },
 });
