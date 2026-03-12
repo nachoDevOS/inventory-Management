@@ -7,7 +7,7 @@
  * Requiere: expo-file-system, expo-sharing, expo-document-picker
  * Instalar: npx expo install expo-file-system expo-document-picker
  */
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 
