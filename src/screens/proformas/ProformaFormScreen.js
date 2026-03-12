@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, FlatList, Modal
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
-import { COLORS, STYLES } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
+import { STYLES } from '../../theme';
 
 // subtotal = cantidad * precio * (1 - descuento/100)
 const calcSubtotal = (cantidad, precio, descuento) =>
@@ -12,6 +13,8 @@ const calcSubtotal = (cantidad, precio, descuento) =>
 
 export default function ProformaFormScreen({ navigation }) {
   const db = useSQLiteContext();
+  const { COLORS } = useTheme();
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
   const [clientes, setClientes] = useState([]);
   const [articulos, setArticulos] = useState([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
@@ -80,13 +83,11 @@ export default function ProformaFormScreen({ navigation }) {
         Alert.alert('Error', `Cantidad inválida en ${item.nombre}`); return;
       }
     }
-
     const result = await db.runAsync(
       'INSERT INTO proformas (idcliente, detalle) VALUES (?,?)',
       [clienteSeleccionado.idcliente, detalle]
     );
     const idproforma = result.lastInsertRowId;
-
     for (const item of items) {
       await db.runAsync(
         'INSERT INTO proforma_detalle (idproforma, idarticulo, cantidad, precio_cotizacion, descuento, subtotal) VALUES (?,?,?,?,?,?)',
@@ -106,7 +107,6 @@ export default function ProformaFormScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
-      {/* Cliente */}
       <Text style={styles.sectionTitle}>Cliente *</Text>
       <TouchableOpacity style={styles.selectorBtn} onPress={() => setModalClientes(true)}>
         <Text style={clienteSeleccionado ? styles.selectorSelected : styles.selectorPlaceholder}>
@@ -115,7 +115,6 @@ export default function ProformaFormScreen({ navigation }) {
         <Text style={styles.selectorArrow}>▼</Text>
       </TouchableOpacity>
 
-      {/* Artículos */}
       <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Artículos</Text>
       {items.map(item => (
         <View key={item.idarticulo} style={[styles.itemCard, STYLES.shadow]}>
@@ -125,41 +124,28 @@ export default function ProformaFormScreen({ navigation }) {
               <Text style={{ color: COLORS.danger, fontSize: 18 }}>✕</Text>
             </TouchableOpacity>
           </View>
-          {/* Fila 1: cantidad y precio */}
           <View style={styles.itemRow}>
             <View style={styles.itemField}>
               <Text style={styles.itemLabel}>Cantidad</Text>
-              <TextInput
-                style={styles.itemInput}
-                value={String(item.cantidad)}
+              <TextInput style={styles.itemInput} value={String(item.cantidad)}
                 onChangeText={v => actualizarItem(item.idarticulo, 'cantidad', parseFloat(v) || 0)}
-                keyboardType="numeric"
-              />
+                keyboardType="numeric" placeholderTextColor={COLORS.textLight} />
             </View>
             <View style={styles.itemField}>
               <Text style={styles.itemLabel}>Precio (Bs.)</Text>
-              <TextInput
-                style={styles.itemInput}
-                value={String(item.precio_cotizacion)}
+              <TextInput style={styles.itemInput} value={String(item.precio_cotizacion)}
                 onChangeText={v => actualizarItem(item.idarticulo, 'precio_cotizacion', parseFloat(v) || 0)}
-                keyboardType="decimal-pad"
-              />
+                keyboardType="decimal-pad" placeholderTextColor={COLORS.textLight} />
             </View>
             <View style={styles.itemField}>
               <Text style={styles.itemLabel}>Descuento %</Text>
               <TextInput
                 style={[styles.itemInput, item.descuento > 0 && styles.itemInputDescuento]}
                 value={String(item.descuento)}
-                onChangeText={v => {
-                  const d = Math.min(100, Math.max(0, parseFloat(v) || 0));
-                  actualizarItem(item.idarticulo, 'descuento', d);
-                }}
-                keyboardType="decimal-pad"
-                placeholder="0"
-              />
+                onChangeText={v => actualizarItem(item.idarticulo, 'descuento', Math.min(100, Math.max(0, parseFloat(v) || 0)))}
+                keyboardType="decimal-pad" placeholder="0" placeholderTextColor={COLORS.textLight} />
             </View>
           </View>
-          {/* Subtotal con desglose */}
           <View style={styles.itemSubtotalRow}>
             {item.descuento > 0 && (
               <Text style={styles.itemDescuentoText}>
@@ -176,7 +162,6 @@ export default function ProformaFormScreen({ navigation }) {
         <Text style={styles.btnAgregarText}>＋ Agregar artículo</Text>
       </TouchableOpacity>
 
-      {/* Resumen total */}
       <View style={styles.totalContainer}>
         {totalDescuento > 0 && (
           <>
@@ -197,132 +182,95 @@ export default function ProformaFormScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Detalle */}
       <View style={styles.campo}>
         <Text style={styles.label}>Detalle / Observaciones</Text>
-        <TextInput
-          style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
+        <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
           value={detalle} onChangeText={setDetalle}
-          placeholder="Notas de la proforma" multiline
-        />
+          placeholder="Notas de la proforma" multiline placeholderTextColor={COLORS.textLight} />
       </View>
 
       <TouchableOpacity style={styles.btnGuardar} onPress={guardar}>
         <Text style={styles.btnGuardarText}>💾 Guardar Proforma</Text>
       </TouchableOpacity>
 
-      {/* Modal Clientes */}
       <Modal visible={modalClientes} animationType="slide" onRequestClose={() => setModalClientes(false)}>
         <View style={styles.modal}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Seleccionar Cliente</Text>
             <TouchableOpacity onPress={() => setModalClientes(false)}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
           </View>
-          <TextInput style={styles.modalSearch} placeholder="Buscar..." value={busqCliente} onChangeText={setBusqCliente} />
-          <FlatList
-            data={clientesFiltrados}
-            keyExtractor={c => String(c.idcliente)}
+          <TextInput style={styles.modalSearch} placeholder="Buscar..." value={busqCliente} onChangeText={setBusqCliente} placeholderTextColor={COLORS.textLight} />
+          <FlatList data={clientesFiltrados} keyExtractor={c => String(c.idcliente)}
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.modalItem} onPress={() => { setClienteSeleccionado(item); setModalClientes(false); }}>
                 <Text style={styles.modalItemText}>{item.nombre}</Text>
                 {item.carnet_identidad ? <Text style={styles.modalItemSub}>CI: {item.carnet_identidad}</Text> : null}
               </TouchableOpacity>
-            )}
-          />
+            )} />
         </View>
       </Modal>
 
-      {/* Modal Artículos */}
       <Modal visible={modalArticulos} animationType="slide" onRequestClose={() => setModalArticulos(false)}>
         <View style={styles.modal}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Seleccionar Artículo</Text>
             <TouchableOpacity onPress={() => setModalArticulos(false)}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
           </View>
-          <TextInput style={styles.modalSearch} placeholder="Buscar..." value={busqArticulo} onChangeText={setBusqArticulo} />
-          <FlatList
-            data={articulosFiltrados}
-            keyExtractor={a => String(a.idarticulo)}
+          <TextInput style={styles.modalSearch} placeholder="Buscar..." value={busqArticulo} onChangeText={setBusqArticulo} placeholderTextColor={COLORS.textLight} />
+          <FlatList data={articulosFiltrados} keyExtractor={a => String(a.idarticulo)}
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.modalItem} onPress={() => agregarItem(item)}>
                 <Text style={styles.modalItemText}>{item.nombre}</Text>
-                <Text style={styles.modalItemSub}>
-                  Stock: {item.stock} | Precio sugerido: Bs. {Number(item.precio_sugerido).toFixed(2)}
-                </Text>
+                <Text style={styles.modalItemSub}>Stock: {item.stock} | Precio sugerido: Bs. {Number(item.precio_sugerido).toFixed(2)}</Text>
               </TouchableOpacity>
-            )}
-          />
+            )} />
         </View>
       </Modal>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text, marginBottom: 6 },
-  selectorBtn: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 8, padding: 12,
-  },
-  selectorSelected: { fontSize: 14, color: COLORS.text, fontWeight: '500' },
-  selectorPlaceholder: { fontSize: 14, color: COLORS.textLight },
-  selectorArrow: { color: COLORS.textLight },
-  itemCard: { backgroundColor: COLORS.card, borderRadius: 8, padding: 10, marginBottom: 8 },
-  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  itemNombre: { fontSize: 14, fontWeight: '600', color: COLORS.text, flex: 1 },
-  itemRow: { flexDirection: 'row', gap: 8 },
-  itemField: { flex: 1 },
-  itemLabel: { fontSize: 11, color: COLORS.textLight, marginBottom: 2 },
-  itemInput: {
-    backgroundColor: COLORS.bg, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 6, padding: 6, fontSize: 13, textAlign: 'center',
-  },
-  itemInputDescuento: { borderColor: COLORS.danger, backgroundColor: '#FFF5F5' },
-  itemSubtotalRow: { alignItems: 'flex-end', marginTop: 6 },
-  itemDescuentoText: { fontSize: 11, color: COLORS.danger, marginBottom: 1 },
-  itemSubtotal: { fontSize: 13, fontWeight: 'bold', color: COLORS.success },
-  itemStock: { fontSize: 11, color: COLORS.textLight, marginTop: 4 },
-  btnAgregarArticulo: {
-    borderWidth: 1.5, borderColor: COLORS.primary, borderStyle: 'dashed',
-    borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 12,
-  },
-  btnAgregarText: { color: COLORS.primary, fontWeight: '600', fontSize: 14 },
-  totalContainer: {
-    backgroundColor: '#EFF6FF', borderRadius: 8, padding: 14, marginBottom: 14,
-  },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  totalLabel: { fontSize: 13, color: COLORS.textLight },
-  totalValorSub: { fontSize: 13, color: COLORS.textLight },
-  separador: { height: 1, backgroundColor: COLORS.border, marginVertical: 6 },
-  totalLabelBig: { fontSize: 15, fontWeight: '600', color: COLORS.text },
-  totalValorBig: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
-  campo: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
-  input: {
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 8, padding: 10, fontSize: 14, color: COLORS.text,
-  },
-  btnGuardar: {
-    backgroundColor: COLORS.primary, borderRadius: 10, padding: 14, alignItems: 'center',
-  },
-  btnGuardarText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
-  modal: { flex: 1, backgroundColor: COLORS.bg },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 16, backgroundColor: COLORS.primary,
-  },
-  modalTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.white },
-  modalClose: { fontSize: 20, color: COLORS.white, padding: 4 },
-  modalSearch: {
-    margin: 12, padding: 10, backgroundColor: COLORS.card,
-    borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, fontSize: 14,
-  },
-  modalItem: {
-    padding: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.card,
-  },
-  modalItemText: { fontSize: 15, color: COLORS.text, fontWeight: '500' },
-  modalItemSub: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
-});
+function makeStyles(C) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.bg },
+    sectionTitle: { fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 6 },
+    selectorBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12 },
+    selectorSelected: { fontSize: 14, color: C.text, fontWeight: '500' },
+    selectorPlaceholder: { fontSize: 14, color: C.textLight },
+    selectorArrow: { color: C.textLight },
+    itemCard: { backgroundColor: C.card, borderRadius: 8, padding: 10, marginBottom: 8 },
+    itemHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    itemNombre: { fontSize: 14, fontWeight: '600', color: C.text, flex: 1 },
+    itemRow: { flexDirection: 'row', gap: 8 },
+    itemField: { flex: 1 },
+    itemLabel: { fontSize: 11, color: C.textLight, marginBottom: 2 },
+    itemInput: { backgroundColor: C.bg, borderWidth: 1, borderColor: C.border, borderRadius: 6, padding: 6, fontSize: 13, textAlign: 'center', color: C.text },
+    itemInputDescuento: { borderColor: C.danger, backgroundColor: '#FFF5F5' },
+    itemSubtotalRow: { alignItems: 'flex-end', marginTop: 6 },
+    itemDescuentoText: { fontSize: 11, color: C.danger, marginBottom: 1 },
+    itemSubtotal: { fontSize: 13, fontWeight: 'bold', color: C.success },
+    itemStock: { fontSize: 11, color: C.textLight, marginTop: 4 },
+    btnAgregarArticulo: { borderWidth: 1.5, borderColor: C.primary, borderStyle: 'dashed', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 12 },
+    btnAgregarText: { color: C.primary, fontWeight: '600', fontSize: 14 },
+    totalContainer: { backgroundColor: C.card, borderRadius: 8, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: C.border },
+    totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+    totalLabel: { fontSize: 13, color: C.textLight },
+    totalValorSub: { fontSize: 13, color: C.textLight },
+    separador: { height: 1, backgroundColor: C.border, marginVertical: 6 },
+    totalLabelBig: { fontSize: 15, fontWeight: '600', color: C.text },
+    totalValorBig: { fontSize: 18, fontWeight: 'bold', color: C.primary },
+    campo: { marginBottom: 14 },
+    label: { fontSize: 13, fontWeight: '600', color: C.text, marginBottom: 4 },
+    input: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10, fontSize: 14, color: C.text },
+    btnGuardar: { backgroundColor: C.primary, borderRadius: 10, padding: 14, alignItems: 'center' },
+    btnGuardarText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+    modal: { flex: 1, backgroundColor: C.bg },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: C.primary },
+    modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
+    modalClose: { fontSize: 20, color: '#fff', padding: 4 },
+    modalSearch: { margin: 12, padding: 10, backgroundColor: C.card, borderRadius: 8, borderWidth: 1, borderColor: C.border, fontSize: 14, color: C.text },
+    modalItem: { padding: 14, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.card },
+    modalItemText: { fontSize: 15, color: C.text, fontWeight: '500' },
+    modalItemSub: { fontSize: 12, color: C.textLight, marginTop: 2 },
+  });
+}

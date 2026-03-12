@@ -5,6 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initDatabase } from './src/database/db';
+import { ThemeProvider } from './src/context/ThemeContext';
 
 function SplashScreen() {
   return (
@@ -26,9 +27,11 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Suspense fallback={<SplashScreen />}>
         <SQLiteProvider databaseName="gestion.db" onInit={initDatabase} useSuspense>
-          <NavigationContainer>
-            <AppNavigator />
-          </NavigationContainer>
+          <ThemeProvider>
+            <NavigationContainer>
+              <AppNavigator />
+            </NavigationContainer>
+          </ThemeProvider>
         </SQLiteProvider>
       </Suspense>
     </GestureHandlerRootView>
@@ -57,36 +60,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  logo: {
-    width: 90,
-    height: 90,
-  },
-  appName: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1E293B',
-    letterSpacing: -0.5,
-    textAlign: 'center',
-  },
-  empresa: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2563EB',
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  web: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  spinner: {
-    marginTop: 48,
-  },
-  cargando: {
-    fontSize: 13,
-    color: '#94A3B8',
-    marginTop: 10,
-  },
+  logo: { width: 90, height: 90 },
+  appName: { fontSize: 26, fontWeight: '800', color: '#1E293B', letterSpacing: -0.5, textAlign: 'center' },
+  empresa: { fontSize: 16, fontWeight: '600', color: '#2563EB', marginTop: 6, textAlign: 'center' },
+  web: { fontSize: 12, color: '#94A3B8', marginTop: 4, textAlign: 'center' },
+  spinner: { marginTop: 48 },
+  cargando: { fontSize: 13, color: '#94A3B8', marginTop: 10 },
 });

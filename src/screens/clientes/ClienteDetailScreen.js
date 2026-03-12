@@ -1,11 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
-import { COLORS, STYLES } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
+import { STYLES } from '../../theme';
 
 export default function ClienteDetailScreen({ route, navigation }) {
   const db = useSQLiteContext();
+  const { COLORS } = useTheme();
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
   const { idcliente } = route.params;
   const [cliente, setCliente] = useState(null);
   const [proformas, setProformas] = useState([]);
@@ -29,6 +32,12 @@ export default function ClienteDetailScreen({ route, navigation }) {
 
   if (!cliente) return null;
 
+  const estadoColor = (estado) => {
+    if (estado === 'convertida') return { color: COLORS.success };
+    if (estado === 'rechazada') return { color: COLORS.danger };
+    return { color: COLORS.warning };
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
       <View style={[styles.card, STYLES.shadow]}>
@@ -36,11 +45,11 @@ export default function ClienteDetailScreen({ route, navigation }) {
           <Text style={styles.avatarText}>{cliente.nombre[0].toUpperCase()}</Text>
         </View>
         <Text style={styles.nombre}>{cliente.nombre}</Text>
-        {cliente.carnet_identidad ? <InfoRow icon="🪪" label="CI" value={cliente.carnet_identidad} /> : null}
-        {cliente.celular ? <InfoRow icon="📱" label="Celular" value={cliente.celular} /> : null}
-        {cliente.correo ? <InfoRow icon="📧" label="Correo" value={cliente.correo} /> : null}
-        {cliente.contacto_referencia ? <InfoRow icon="👤" label="Referencia" value={cliente.contacto_referencia} /> : null}
-        {cliente.detalle ? <InfoRow icon="📝" label="Detalle" value={cliente.detalle} /> : null}
+        {cliente.carnet_identidad ? <InfoRow icon="🪪" label="CI" value={cliente.carnet_identidad} S={styles} /> : null}
+        {cliente.celular ? <InfoRow icon="📱" label="Celular" value={cliente.celular} S={styles} /> : null}
+        {cliente.correo ? <InfoRow icon="📧" label="Correo" value={cliente.correo} S={styles} /> : null}
+        {cliente.contacto_referencia ? <InfoRow icon="👤" label="Referencia" value={cliente.contacto_referencia} S={styles} /> : null}
+        {cliente.detalle ? <InfoRow icon="📝" label="Detalle" value={cliente.detalle} S={styles} /> : null}
 
         <TouchableOpacity
           style={styles.btnEditar}
@@ -50,7 +59,7 @@ export default function ClienteDetailScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      <SectionTitle title="Proformas" count={proformas.length} />
+      <Text style={styles.sectionTitle}>Proformas ({proformas.length})</Text>
       {proformas.map(p => (
         <TouchableOpacity
           key={p.idproforma}
@@ -63,7 +72,7 @@ export default function ClienteDetailScreen({ route, navigation }) {
       ))}
       {proformas.length === 0 && <Text style={styles.empty}>Sin proformas</Text>}
 
-      <SectionTitle title="Ventas" count={ventas.length} />
+      <Text style={styles.sectionTitle}>Ventas ({ventas.length})</Text>
       {ventas.map(v => (
         <TouchableOpacity
           key={v.idventa}
@@ -79,49 +88,41 @@ export default function ClienteDetailScreen({ route, navigation }) {
   );
 }
 
-const InfoRow = ({ icon, label, value }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{icon} {label}:</Text>
-    <Text style={styles.infoValue}>{value}</Text>
+const InfoRow = ({ icon, label, value, S }) => (
+  <View style={S.infoRow}>
+    <Text style={S.infoLabel}>{icon} {label}:</Text>
+    <Text style={S.infoValue}>{value}</Text>
   </View>
 );
 
-const SectionTitle = ({ title, count }) => (
-  <Text style={styles.sectionTitle}>{title} ({count})</Text>
-);
-
-const estadoColor = (estado) => {
-  if (estado === 'convertida') return { color: COLORS.success };
-  if (estado === 'rechazada') return { color: COLORS.danger };
-  return { color: COLORS.warning };
-};
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  card: {
-    backgroundColor: COLORS.card, borderRadius: 12, padding: 16,
-    alignItems: 'center', marginBottom: 16,
-  },
-  avatar: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginBottom: 8,
-  },
-  avatarText: { color: COLORS.white, fontSize: 28, fontWeight: 'bold' },
-  nombre: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginBottom: 12 },
-  infoRow: { flexDirection: 'row', marginBottom: 6, alignSelf: 'stretch' },
-  infoLabel: { fontSize: 13, color: COLORS.textLight, width: 100, fontWeight: '600' },
-  infoValue: { fontSize: 13, color: COLORS.text, flex: 1 },
-  btnEditar: {
-    backgroundColor: COLORS.primary, borderRadius: 8,
-    paddingVertical: 10, paddingHorizontal: 24, marginTop: 12,
-  },
-  btnEditarText: { color: COLORS.white, fontWeight: 'bold' },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, marginBottom: 8, marginTop: 4 },
-  miniCard: {
-    backgroundColor: COLORS.card, borderRadius: 8, padding: 12, marginBottom: 6,
-  },
-  miniCardTitle: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  miniCardSub: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
-  estado: { fontWeight: '600' },
-  empty: { color: COLORS.textLight, fontSize: 13, marginBottom: 8 },
-});
+function makeStyles(C) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.bg },
+    card: {
+      backgroundColor: C.card, borderRadius: 12, padding: 16,
+      alignItems: 'center', marginBottom: 16,
+    },
+    avatar: {
+      width: 64, height: 64, borderRadius: 32,
+      backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center', marginBottom: 8,
+    },
+    avatarText: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
+    nombre: { fontSize: 20, fontWeight: 'bold', color: C.text, marginBottom: 12 },
+    infoRow: { flexDirection: 'row', marginBottom: 6, alignSelf: 'stretch' },
+    infoLabel: { fontSize: 13, color: C.textLight, width: 100, fontWeight: '600' },
+    infoValue: { fontSize: 13, color: C.text, flex: 1 },
+    btnEditar: {
+      backgroundColor: C.primary, borderRadius: 8,
+      paddingVertical: 10, paddingHorizontal: 24, marginTop: 12,
+    },
+    btnEditarText: { color: '#fff', fontWeight: 'bold' },
+    sectionTitle: { fontSize: 16, fontWeight: 'bold', color: C.text, marginBottom: 8, marginTop: 4 },
+    miniCard: {
+      backgroundColor: C.card, borderRadius: 8, padding: 12, marginBottom: 6,
+    },
+    miniCardTitle: { fontSize: 14, fontWeight: '600', color: C.text },
+    miniCardSub: { fontSize: 12, color: C.textLight, marginTop: 2 },
+    estado: { fontWeight: '600' },
+    empty: { color: C.textLight, fontSize: 13, marginBottom: 8 },
+  });
+}

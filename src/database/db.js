@@ -1,7 +1,27 @@
+/**
+ * db.js — Inicialización y migración de la base de datos SQLite
+ *
+ * Tablas:
+ *  - clientes           Datos del cliente
+ *  - articulos          Catálogo de productos (con idcategoria y codigo_barras)
+ *  - categorias         Categorías para clasificar artículos
+ *  - compras            Entradas de stock
+ *  - proformas          Cotizaciones
+ *  - proforma_detalle   Ítems de cada proforma (con descuento)
+ *  - ventas             Ventas confirmadas
+ *  - venta_detalle      Ítems de cada venta (con descuento)
+ *  - configuracion      Ajustes de la app (clave-valor)
+ */
 export const initDatabase = async (db) => {
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
+
+    CREATE TABLE IF NOT EXISTS categorias (
+      idcategoria INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL UNIQUE,
+      color TEXT DEFAULT '#2563EB'
+    );
 
     CREATE TABLE IF NOT EXISTS clientes (
       idcliente INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,7 +38,10 @@ export const initDatabase = async (db) => {
       idarticulo INTEGER PRIMARY KEY AUTOINCREMENT,
       imagen TEXT,
       nombre TEXT NOT NULL,
-      detalle TEXT
+      detalle TEXT,
+      idcategoria INTEGER,
+      codigo_barras TEXT,
+      FOREIGN KEY (idcategoria) REFERENCES categorias(idcategoria)
     );
 
     CREATE TABLE IF NOT EXISTS compras (
@@ -76,13 +99,40 @@ export const initDatabase = async (db) => {
       FOREIGN KEY (idventa) REFERENCES ventas(idventa),
       FOREIGN KEY (idarticulo) REFERENCES articulos(idarticulo)
     );
+
+    CREATE TABLE IF NOT EXISTS configuracion (
+      clave TEXT PRIMARY KEY,
+      valor TEXT
+    );
   `);
 
-  // Migración: agregar columna descuento si no existe (para instalaciones previas)
-  try {
-    await db.execAsync('ALTER TABLE proforma_detalle ADD COLUMN descuento REAL NOT NULL DEFAULT 0');
-  } catch (_) {}
-  try {
-    await db.execAsync('ALTER TABLE venta_detalle ADD COLUMN descuento REAL NOT NULL DEFAULT 0');
-  } catch (_) {}
+  // ── Migraciones para instalaciones previas ──────────────────────────────
+  const migraciones = [
+    'ALTER TABLE proforma_detalle ADD COLUMN descuento REAL NOT NULL DEFAULT 0',
+    'ALTER TABLE venta_detalle ADD COLUMN descuento REAL NOT NULL DEFAULT 0',
+    'ALTER TABLE articulos ADD COLUMN idcategoria INTEGER',
+    'ALTER TABLE articulos ADD COLUMN codigo_barras TEXT',
+  ];
+  for (const sql of migraciones) {
+    try { await db.execAsync(sql); } catch (_) {}
+  }
+
+  // ── Valores de configuración por defecto (no sobreescribe existentes) ───
+  const defaults = [
+    ['nombre_negocio', 'Soluciones Tecnológicas'],
+    ['moneda', 'Bs.'],
+    ['stock_minimo', '3'],
+    ['dark_mode', '0'],
+    ['nit', ''],
+    ['direccion', ''],
+    ['telefono', ''],
+  ];
+  for (const [clave, valor] of defaults) {
+    try {
+      await db.runAsync(
+        'INSERT OR IGNORE INTO configuracion (clave, valor) VALUES (?,?)',
+        [clave, valor]
+      );
+    } catch (_) {}
+  }
 };

@@ -1,11 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
-import { COLORS, STYLES } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
+import { STYLES } from '../../theme';
 
 export default function VentaDetailScreen({ route, navigation }) {
   const db = useSQLiteContext();
+  const { COLORS } = useTheme();
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
   const { idventa } = route.params;
   const [venta, setVenta] = useState(null);
   const [cliente, setCliente] = useState(null);
@@ -50,7 +53,6 @@ export default function VentaDetailScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
-      {/* Encabezado */}
       <View style={[styles.card, STYLES.shadow]}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardId}>Venta #{venta.idventa}</Text>
@@ -58,14 +60,13 @@ export default function VentaDetailScreen({ route, navigation }) {
             <Text style={styles.ventaBadgeText}>✅ VENTA</Text>
           </View>
         </View>
-        <InfoRow label="Cliente" value={cliente.nombre} />
-        {cliente.celular ? <InfoRow label="Celular" value={cliente.celular} /> : null}
-        <InfoRow label="Fecha" value={venta.fecha} />
-        {venta.idproforma ? <InfoRow label="Proforma" value={`#${venta.idproforma}`} /> : null}
-        {venta.detalle ? <InfoRow label="Detalle" value={venta.detalle} /> : null}
+        <InfoRow label="Cliente" value={cliente.nombre} S={styles} />
+        {cliente.celular ? <InfoRow label="Celular" value={cliente.celular} S={styles} /> : null}
+        <InfoRow label="Fecha" value={venta.fecha} S={styles} />
+        {venta.idproforma ? <InfoRow label="Proforma" value={`#${venta.idproforma}`} S={styles} /> : null}
+        {venta.detalle ? <InfoRow label="Detalle" value={venta.detalle} S={styles} /> : null}
       </View>
 
-      {/* Items */}
       <Text style={styles.sectionTitle}>Artículos vendidos</Text>
       {items.map(item => {
         const bruto = item.cantidad * item.precio_venta;
@@ -82,15 +83,12 @@ export default function VentaDetailScreen({ route, navigation }) {
                 </View>
               )}
             </View>
-            {item.descuento > 0 && (
-              <Text style={styles.ahorroText}>Ahorro: Bs. {ahorrado.toFixed(2)}</Text>
-            )}
+            {item.descuento > 0 && <Text style={styles.ahorroText}>Ahorro: Bs. {ahorrado.toFixed(2)}</Text>}
             <Text style={styles.itemSubtotal}>Subtotal: Bs. {Number(item.subtotal).toFixed(2)}</Text>
           </View>
         );
       })}
 
-      {/* Total */}
       {(() => {
         const brutoTotal = items.reduce((s, i) => s + i.cantidad * i.precio_venta, 0);
         const descTotal = brutoTotal - venta.total;
@@ -106,7 +104,7 @@ export default function VentaDetailScreen({ route, navigation }) {
                   <Text style={[styles.totalLabelSub, { color: COLORS.danger }]}>Descuentos:</Text>
                   <Text style={[styles.totalValorSub, { color: COLORS.danger }]}>- Bs. {descTotal.toFixed(2)}</Text>
                 </View>
-                <View style={{ height: 1, backgroundColor: '#BBF7D0', marginVertical: 6 }} />
+                <View style={{ height: 1, backgroundColor: COLORS.border, marginVertical: 6 }} />
               </>
             )}
             <View style={styles.totalRow}>
@@ -117,7 +115,6 @@ export default function VentaDetailScreen({ route, navigation }) {
         );
       })()}
 
-      {/* Acciones */}
       <TouchableOpacity
         style={styles.btnVerCliente}
         onPress={() => navigation.navigate('Clientes', { screen: 'ClienteDetail', params: { idcliente: cliente.idcliente } })}
@@ -132,46 +129,42 @@ export default function VentaDetailScreen({ route, navigation }) {
   );
 }
 
-const InfoRow = ({ label, value }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}:</Text>
-    <Text style={styles.infoValue}>{value}</Text>
+const InfoRow = ({ label, value, S }) => (
+  <View style={S.infoRow}>
+    <Text style={S.infoLabel}>{label}:</Text>
+    <Text style={S.infoValue}>{value}</Text>
   </View>
 );
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  card: { backgroundColor: COLORS.card, borderRadius: 10, padding: 14, marginBottom: 14 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  cardId: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
-  ventaBadge: { backgroundColor: '#DCFCE7', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3 },
-  ventaBadgeText: { fontSize: 11, fontWeight: '700', color: COLORS.success },
-  infoRow: { flexDirection: 'row', marginBottom: 4 },
-  infoLabel: { fontSize: 13, color: COLORS.textLight, width: 70, fontWeight: '600' },
-  infoValue: { fontSize: 13, color: COLORS.text, flex: 1 },
-  sectionTitle: { fontSize: 15, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 },
-  itemCard: { backgroundColor: COLORS.card, borderRadius: 8, padding: 10, marginBottom: 6 },
-  itemNombre: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 2 },
-  itemSub: { fontSize: 12, color: COLORS.textLight },
-  descuentoBadge: { backgroundColor: '#FEE2E2', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
-  descuentoText: { fontSize: 11, color: COLORS.danger, fontWeight: '700' },
-  ahorroText: { fontSize: 11, color: COLORS.danger, marginBottom: 2 },
-  itemSubtotal: { fontSize: 13, fontWeight: 'bold', color: COLORS.success, marginTop: 2 },
-  totalContainer: { backgroundColor: '#F0FDF4', borderRadius: 8, padding: 14, marginBottom: 14 },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
-  totalLabelSub: { fontSize: 13, color: '#6B7280' },
-  totalValorSub: { fontSize: 13, color: '#6B7280' },
-  totalLabel: { fontSize: 16, fontWeight: '600', color: COLORS.text },
-  totalValor: { fontSize: 20, fontWeight: 'bold', color: COLORS.success },
-  btnVerCliente: {
-    backgroundColor: COLORS.primary, borderRadius: 10, padding: 12,
-    alignItems: 'center', marginBottom: 10,
-  },
-  btnVerClienteText: { color: COLORS.white, fontWeight: '600', fontSize: 14 },
-  btnEliminar: {
-    borderWidth: 1, borderColor: COLORS.danger, borderRadius: 10,
-    padding: 12, alignItems: 'center', marginBottom: 16,
-  },
-  btnEliminarText: { color: COLORS.danger, fontWeight: '600', fontSize: 14 },
-});
+function makeStyles(C) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.bg },
+    card: { backgroundColor: C.card, borderRadius: 10, padding: 14, marginBottom: 14 },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    cardId: { fontSize: 18, fontWeight: 'bold', color: C.text },
+    ventaBadge: { backgroundColor: '#DCFCE7', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3 },
+    ventaBadgeText: { fontSize: 11, fontWeight: '700', color: C.success },
+    infoRow: { flexDirection: 'row', marginBottom: 4 },
+    infoLabel: { fontSize: 13, color: C.textLight, width: 70, fontWeight: '600' },
+    infoValue: { fontSize: 13, color: C.text, flex: 1 },
+    sectionTitle: { fontSize: 15, fontWeight: 'bold', color: C.text, marginBottom: 8 },
+    itemCard: { backgroundColor: C.card, borderRadius: 8, padding: 10, marginBottom: 6 },
+    itemNombre: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 4 },
+    itemRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 2 },
+    itemSub: { fontSize: 12, color: C.textLight },
+    descuentoBadge: { backgroundColor: '#FEE2E2', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
+    descuentoText: { fontSize: 11, color: C.danger, fontWeight: '700' },
+    ahorroText: { fontSize: 11, color: C.danger, marginBottom: 2 },
+    itemSubtotal: { fontSize: 13, fontWeight: 'bold', color: C.success, marginTop: 2 },
+    totalContainer: { backgroundColor: C.card, borderRadius: 8, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: C.border },
+    totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
+    totalLabelSub: { fontSize: 13, color: C.textLight },
+    totalValorSub: { fontSize: 13, color: C.textLight },
+    totalLabel: { fontSize: 16, fontWeight: '600', color: C.text },
+    totalValor: { fontSize: 20, fontWeight: 'bold', color: C.success },
+    btnVerCliente: { backgroundColor: C.primary, borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 10 },
+    btnVerClienteText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+    btnEliminar: { borderWidth: 1, borderColor: C.danger, borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 16 },
+    btnEliminarText: { color: C.danger, fontWeight: '600', fontSize: 14 },
+  });
+}

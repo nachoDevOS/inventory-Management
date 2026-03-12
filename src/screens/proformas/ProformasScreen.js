@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
-import { COLORS, STYLES } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
+import { STYLES } from '../../theme';
 
 const ESTADO_COLOR = {
   pendiente: { bg: '#FEF3C7', text: '#D97706' },
@@ -15,6 +16,8 @@ const ESTADO_COLOR = {
 
 export default function ProformasScreen({ navigation }) {
   const db = useSQLiteContext();
+  const { COLORS } = useTheme();
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
   const [proformas, setProformas] = useState([]);
 
   const cargar = useCallback(async () => {
@@ -68,24 +71,26 @@ export default function ProformasScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  card: {
-    backgroundColor: COLORS.card, borderRadius: 10, padding: 12, marginBottom: 8,
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  cardId: { fontSize: 15, fontWeight: 'bold', color: COLORS.text },
-  estadoBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  estadoText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  cliente: { fontSize: 13, color: COLORS.textLight, marginBottom: 6 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between' },
-  fecha: { fontSize: 12, color: COLORS.textLight },
-  total: { fontSize: 14, fontWeight: 'bold', color: COLORS.primary },
-  empty: { textAlign: 'center', color: COLORS.textLight, marginTop: 40, fontSize: 15 },
-  fab: {
-    position: 'absolute', bottom: 24, right: 20,
-    backgroundColor: COLORS.primary, width: 56, height: 56,
-    borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 6,
-  },
-  fabText: { color: COLORS.white, fontSize: 28, lineHeight: 32 },
-});
+function makeStyles(C) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.bg },
+    card: {
+      backgroundColor: C.card, borderRadius: 10, padding: 12, marginBottom: 8,
+    },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+    cardId: { fontSize: 15, fontWeight: 'bold', color: C.text },
+    estadoBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+    estadoText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+    cliente: { fontSize: 13, color: C.textLight, marginBottom: 6 },
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between' },
+    fecha: { fontSize: 12, color: C.textLight },
+    total: { fontSize: 14, fontWeight: 'bold', color: C.primary },
+    empty: { textAlign: 'center', color: C.textLight, marginTop: 40, fontSize: 15 },
+    fab: {
+      position: 'absolute', bottom: 24, right: 20,
+      backgroundColor: C.primary, width: 56, height: 56,
+      borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 6,
+    },
+    fabText: { color: '#fff', fontSize: 28, lineHeight: 32 },
+  });
+}

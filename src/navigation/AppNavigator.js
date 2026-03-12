@@ -26,6 +26,10 @@ import ProformaDetailScreen from '../screens/proformas/ProformaDetailScreen';
 // Ventas
 import VentasScreen from '../screens/ventas/VentasScreen';
 import VentaDetailScreen from '../screens/ventas/VentaDetailScreen';
+import VentaFormScreen from '../screens/ventas/VentaFormScreen';
+
+// Configuración
+import ConfiguracionScreen from '../screens/configuracion/ConfiguracionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -81,6 +85,15 @@ function VentasStack() {
     <Stack.Navigator screenOptions={headerStyle}>
       <Stack.Screen name="VentasList" component={VentasScreen} options={{ title: 'Ventas' }} />
       <Stack.Screen name="VentaDetail" component={VentaDetailScreen} options={{ title: 'Detalle Venta' }} />
+      <Stack.Screen name="VentaForm" component={VentaFormScreen} options={{ title: 'Nueva Venta' }} />
+    </Stack.Navigator>
+  );
+}
+
+function ConfiguracionStack() {
+  return (
+    <Stack.Navigator screenOptions={headerStyle}>
+      <Stack.Screen name="ConfiguracionMain" component={ConfiguracionScreen} options={{ title: 'Configuración' }} />
     </Stack.Navigator>
   );
 }
@@ -106,27 +119,32 @@ export default function AppNavigator() {
       <Tab.Screen
         name="Dashboard"
         component={DashboardStack}
-        options={{ tabBarIcon: ({ color }) => <TabIcon emoji="📊" color={color} />, tabBarLabel: 'Dashboard' }}
+        options={{ tabBarIcon: () => <TabIcon emoji="📊" />, tabBarLabel: 'Dashboard' }}
       />
       <Tab.Screen
         name="Clientes"
         component={ClientesStack}
-        options={{ tabBarIcon: ({ color }) => <TabIcon emoji="👥" color={color} />, tabBarLabel: 'Clientes' }}
+        options={{ tabBarIcon: () => <TabIcon emoji="👥" />, tabBarLabel: 'Clientes' }}
       />
       <Tab.Screen
         name="Articulos"
         component={ArticulosStack}
-        options={{ tabBarIcon: ({ color }) => <TabIcon emoji="📦" color={color} />, tabBarLabel: 'Artículos' }}
+        options={{ tabBarIcon: () => <TabIcon emoji="📦" />, tabBarLabel: 'Artículos' }}
       />
       <Tab.Screen
         name="Proformas"
         component={ProformasStack}
-        options={{ tabBarIcon: ({ color }) => <TabIcon emoji="📋" color={color} />, tabBarLabel: 'Proformas' }}
+        options={{ tabBarIcon: () => <TabIcon emoji="📋" />, tabBarLabel: 'Proformas' }}
       />
       <Tab.Screen
         name="Ventas"
         component={VentasStack}
-        options={{ tabBarIcon: ({ color }) => <TabIcon emoji="💰" color={color} />, tabBarLabel: 'Ventas' }}
+        options={{ tabBarIcon: () => <TabIcon emoji="💰" />, tabBarLabel: 'Ventas' }}
+      />
+      <Tab.Screen
+        name="Configuracion"
+        component={ConfiguracionStack}
+        options={{ tabBarIcon: () => <TabIcon emoji="⚙️" />, tabBarLabel: 'Config.' }}
       />
     </Tab.Navigator>
   );
