@@ -7,15 +7,30 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useTheme } from '../../context/ThemeContext';
 import { STYLES } from '../../theme';
 
-/**
- * CompraFormScreen — Registro de compras / entrada de stock
- *
- * Fórmula de ganancia por unidad:
- *   costo_envio_unit = precio_envio / cantidad
- *   costo_unit       = precio_compra + costo_envio_unit
- *   ganancia_unit    = precio_venta_sugerido - costo_unit
- *   margen_%         = (ganancia_unit / costo_unit) * 100
- */
+const hoyFormateado = () => {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
+const parsearFecha = (str) => {
+  const parts = str.split('/');
+  if (parts.length !== 3 || parts[2].length !== 4) return null;
+  const [dd, mm, yyyy] = parts;
+  if (isNaN(Number(dd)) || isNaN(Number(mm)) || isNaN(Number(yyyy))) return null;
+  return `${yyyy}-${mm}-${dd} 00:00:00`;
+};
+
+const sqlFechaADisplay = (sqlFecha) => {
+  if (!sqlFecha) return hoyFormateado();
+  const dateStr = sqlFecha.split(' ')[0];
+  const [yyyy, mm, dd] = dateStr.split('-');
+  if (!yyyy || !mm || !dd) return hoyFormateado();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 export default function CompraFormScreen({ route, navigation }) {
   const db = useSQLiteContext();
   const { COLORS } = useTheme();
@@ -23,6 +38,7 @@ export default function CompraFormScreen({ route, navigation }) {
   const { idarticulo, idcompra } = route.params;
   const modoEdicion = !!idcompra;
   const [articulo, setArticulo] = useState(null);
+  const [fecha, setFecha] = useState(hoyFormateado());
   const [form, setForm] = useState({
     cantidad: '1',
     precio_compra: '',
@@ -35,13 +51,16 @@ export default function CompraFormScreen({ route, navigation }) {
     db.getFirstAsync('SELECT * FROM articulos WHERE idarticulo = ?', [idarticulo]).then(setArticulo);
     if (idcompra) {
       db.getFirstAsync('SELECT * FROM compras WHERE idcompra = ?', [idcompra]).then(c => {
-        if (c) setForm({
-          cantidad: String(c.cantidad),
-          precio_compra: String(c.precio_compra),
-          precio_envio: String(c.precio_envio),
-          precio_venta_sugerido: String(c.precio_venta_sugerido),
-          detalle: c.detalle || '',
-        });
+        if (c) {
+          setForm({
+            cantidad: String(c.cantidad),
+            precio_compra: String(c.precio_compra),
+            precio_envio: String(c.precio_envio),
+            precio_venta_sugerido: String(c.precio_venta_sugerido),
+            detalle: c.detalle || '',
+          });
+          if (c.fecha) setFecha(sqlFechaADisplay(c.fecha));
+        }
       });
     }
   }, [idarticulo, idcompra]);
@@ -73,8 +92,8 @@ export default function CompraFormScreen({ route, navigation }) {
       if (!cantidad || cantidad <= 0) { Alert.alert('Error', 'La cantidad debe ser mayor a 0'); return; }
       if (isNaN(precioCompra) || precioCompra < 0) { Alert.alert('Error', 'Ingresa un precio de compra válido'); return; }
       await db.runAsync(
-        `INSERT INTO compras (idarticulo, cantidad, precio_compra, precio_envio, precio_venta_sugerido, detalle) VALUES (?,?,?,?,?,?)`,
-        [idarticulo, cantidad, precioCompra, precioEnvio, precioVenta || 0, form.detalle]
+        `INSERT INTO compras (idarticulo, cantidad, precio_compra, precio_envio, precio_venta_sugerido, detalle, fecha) VALUES (?,?,?,?,?,?,?)`,
+        [idarticulo, cantidad, precioCompra, precioEnvio, precioVenta || 0, form.detalle, parsearFecha(fecha) || new Date().toISOString().slice(0, 19).replace('T', ' ')]
       );
     }
     navigation.goBack();
@@ -126,6 +145,9 @@ export default function CompraFormScreen({ route, navigation }) {
             hint="Precio al que planeas vender cada unidad" S={styles} C={COLORS} />
           <Campo label="Detalle / Observaciones" value={form.detalle} onChangeText={v => set('detalle', v)}
             placeholder="Notas de la compra (proveedor, número de factura, etc.)" multiline numberOfLines={2} S={styles} C={COLORS} />
+          <Campo label="Fecha de compra (DD/MM/AAAA) — opcional" value={fecha}
+            onChangeText={setFecha} keyboardType="numeric" placeholder="DD/MM/AAAA"
+            hint="Dejá la fecha de hoy o cambiala si la compra fue en otro día" S={styles} C={COLORS} />
         </>
       )}
 

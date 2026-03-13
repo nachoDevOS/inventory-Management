@@ -59,6 +59,27 @@ export default function ProformaDetailScreen({ route, navigation }) {
 
   const convertirAVenta = async () => {
     if (proforma?.estado === 'convertida') { Alert.alert('Info', 'Esta proforma ya fue convertida a venta'); return; }
+
+    // Verificar stock actual en tiempo real antes de mostrar confirmación
+    const stockActual = await db.getAllAsync(`
+      SELECT pd.idarticulo, pd.cantidad, a.nombre,
+        COALESCE((SELECT SUM(c.cantidad) FROM compras c WHERE c.idarticulo = pd.idarticulo), 0) -
+        COALESCE((SELECT SUM(vd.cantidad) FROM venta_detalle vd WHERE vd.idarticulo = pd.idarticulo), 0) AS stock
+      FROM proforma_detalle pd
+      JOIN articulos a ON a.idarticulo = pd.idarticulo
+      WHERE pd.idproforma = ?
+    `, [idproforma]);
+
+    for (const item of stockActual) {
+      if (item.cantidad > item.stock) {
+        Alert.alert(
+          'Stock insuficiente',
+          `No se puede convertir a venta.\n\n"${item.nombre}" necesita ${item.cantidad} unidad(es) pero solo hay ${item.stock} en stock.\n\nEdita la proforma o espera reponer el stock.`
+        );
+        return;
+      }
+    }
+
     Alert.alert('Convertir a Venta', '¿Convertir esta proforma en una venta?', [
       { text: 'Cancelar', style: 'cancel' },
       {

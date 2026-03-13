@@ -144,6 +144,13 @@ export default function ProformaFormScreen({ route, navigation }) {
       if (!item.cantidad || item.cantidad <= 0) {
         Alert.alert('Error', `Cantidad inválida en ${item.nombre}`); return;
       }
+      if (item.cantidad > item.stock) {
+        Alert.alert(
+          'Stock insuficiente',
+          `Solo hay ${item.stock} unidad(es) de "${item.nombre}" en stock y la proforma pide ${item.cantidad}.`
+        );
+        return;
+      }
     }
     if (modoEdicion) {
       await db.runAsync(
@@ -309,9 +316,15 @@ export default function ProformaFormScreen({ route, navigation }) {
           <TextInput style={styles.modalSearch} placeholder="Buscar..." value={busqArticulo} onChangeText={setBusqArticulo} placeholderTextColor={COLORS.textLight} />
           <FlatList data={articulosFiltrados} keyExtractor={a => String(a.idarticulo)}
             renderItem={({ item }) => (
-              <TouchableOpacity style={styles.modalItem} onPress={() => agregarItem(item)}>
+              <TouchableOpacity
+                style={[styles.modalItem, item.stock <= 0 && { opacity: 0.45 }]}
+                onPress={() => item.stock > 0 ? agregarItem(item) : Alert.alert('Sin stock', `"${item.nombre}" no tiene stock disponible.`)}
+              >
                 <Text style={styles.modalItemText}>{item.nombre}</Text>
-                <Text style={styles.modalItemSub}>Stock: {item.stock} | Precio sugerido: Bs. {Number(item.precio_sugerido).toFixed(2)}</Text>
+                <Text style={styles.modalItemSub}>
+                  Stock: {item.stock} | Bs. {Number(item.precio_sugerido).toFixed(2)}
+                  {item.stock <= 0 ? ' — SIN STOCK' : ''}
+                </Text>
               </TouchableOpacity>
             )} />
         </View>
