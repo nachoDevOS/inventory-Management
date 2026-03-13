@@ -15,7 +15,7 @@ export default function ArticuloFormScreen({ route, navigation }) {
   const articuloExistente = route.params?.articulo;
   const [form, setForm] = useState({
     nombre: '', detalle: '', imagen: '',
-    idcategoria: null, codigo_barras: '', sku: ''
+    idcategoria: null, codigo_barras: '', sku: '', marca: ''
   });
   const [categorias, setCategorias] = useState([]);
   const [modalCat, setModalCat] = useState(false);
@@ -31,6 +31,7 @@ export default function ArticuloFormScreen({ route, navigation }) {
         idcategoria: articuloExistente.idcategoria || null,
         codigo_barras: articuloExistente.codigo_barras || '',
         sku: articuloExistente.sku || '',
+        marca: articuloExistente.marca || '',
       });
       if (articuloExistente.idcategoria) {
         db.getFirstAsync('SELECT * FROM categorias WHERE idcategoria = ?', [articuloExistente.idcategoria])
@@ -63,13 +64,13 @@ export default function ArticuloFormScreen({ route, navigation }) {
     if (!form.nombre.trim()) { Alert.alert('Error', 'El nombre del artículo es obligatorio'); return; }
     if (articuloExistente) {
       await db.runAsync(
-        'UPDATE articulos SET nombre=?, detalle=?, imagen=?, idcategoria=?, codigo_barras=?, sku=? WHERE idarticulo=?',
-        [form.nombre, form.detalle, form.imagen, form.idcategoria, form.codigo_barras, form.sku, articuloExistente.idarticulo]
+        'UPDATE articulos SET nombre=?, detalle=?, imagen=?, idcategoria=?, codigo_barras=?, sku=?, marca=? WHERE idarticulo=?',
+        [form.nombre, form.detalle, form.imagen, form.idcategoria, form.codigo_barras, form.sku, form.marca, articuloExistente.idarticulo]
       );
     } else {
       await db.runAsync(
-        'INSERT INTO articulos (nombre, detalle, imagen, idcategoria, codigo_barras, sku) VALUES (?,?,?,?,?,?)',
-        [form.nombre, form.detalle, form.imagen, form.idcategoria, form.codigo_barras, form.sku]
+        'INSERT INTO articulos (nombre, detalle, imagen, idcategoria, codigo_barras, sku, marca) VALUES (?,?,?,?,?,?,?)',
+        [form.nombre, form.detalle, form.imagen, form.idcategoria, form.codigo_barras, form.sku, form.marca]
       );
     }
     navigation.goBack();
@@ -130,6 +131,14 @@ export default function ArticuloFormScreen({ route, navigation }) {
           )}
           <Text style={{ color: COLORS.textLight }}>▼</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* ── Marca ── */}
+      <View style={styles.campo}>
+        <Text style={styles.label}>Marca</Text>
+        <TextInput style={styles.input} value={form.marca} onChangeText={v => set('marca', v)}
+          placeholder="Ej: Samsung, Nike, Genérico..." placeholderTextColor={COLORS.textLight}
+          autoCapitalize="words" />
       </View>
 
       {/* ── Código de Barras y SKU en fila ── */}

@@ -24,11 +24,17 @@ export default function ArticulosScreen({ navigation }) {
   const [busqueda, setBusqueda] = useState('');
   const [categorias, setCategorias] = useState([]);
   const [categoriaFiltro, setCategoriaFiltro] = useState(null);
+  const [marcas, setMarcas] = useState([]);
+  const [marcaFiltro, setMarcaFiltro] = useState(null);
   const [valorInventario, setValorInventario] = useState(0);
 
   const cargar = useCallback(async () => {
     const cats = await db.getAllAsync('SELECT * FROM categorias ORDER BY nombre ASC');
     setCategorias(cats);
+    const ms = await db.getAllAsync(
+      "SELECT DISTINCT marca FROM articulos WHERE marca IS NOT NULL AND marca != '' ORDER BY marca ASC"
+    );
+    setMarcas(ms.map(r => r.marca));
 
     let sql = `
       SELECT a.*,
@@ -43,12 +49,13 @@ export default function ArticulosScreen({ navigation }) {
     `;
     const params = [`%${busqueda}%`];
     if (categoriaFiltro !== null) { sql += ' AND a.idcategoria = ?'; params.push(categoriaFiltro); }
+    if (marcaFiltro !== null) { sql += ' AND a.marca = ?'; params.push(marcaFiltro); }
     sql += ' ORDER BY a.nombre ASC';
 
     const rows = await db.getAllAsync(sql, params);
     setArticulos(rows);
     setValorInventario(rows.reduce((s, a) => s + Math.max(a.stock, 0) * (a.costo_unitario || 0), 0));
-  }, [db, busqueda, categoriaFiltro]);
+  }, [db, busqueda, categoriaFiltro, marcaFiltro]);
 
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
 
@@ -82,6 +89,11 @@ export default function ArticulosScreen({ navigation }) {
                 <Text style={[styles.catText, { color: item.categoria_color || '#2563EB' }]}>{item.categoria_nombre}</Text>
               </View>
             )}
+            {item.marca ? (
+              <View style={styles.marcaBadge}>
+                <Text style={styles.marcaText}>{item.marca}</Text>
+              </View>
+            ) : null}
           </View>
           <View style={styles.stockRow}>
             <View style={[styles.stockBadge, { backgroundColor: item.stock > 0 ? '#DCFCE7' : '#FEE2E2' }]}>
@@ -138,6 +150,28 @@ export default function ArticulosScreen({ navigation }) {
         </ScrollView>
       )}
 
+      {/* Filtro de marcas */}
+      {marcas.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          style={styles.catsScroll} contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingVertical: 4 }}>
+          <TouchableOpacity
+            style={[styles.catFiltro, styles.marcaFiltroBase, marcaFiltro === null && { backgroundColor: '#7C3AED', borderColor: '#7C3AED' }]}
+            onPress={() => setMarcaFiltro(null)}
+          >
+            <Text style={[styles.catFiltroText, marcaFiltro === null && { color: '#fff' }]}>🏷️ Todas las marcas</Text>
+          </TouchableOpacity>
+          {marcas.map(m => (
+            <TouchableOpacity
+              key={m}
+              style={[styles.catFiltro, styles.marcaFiltroBase, marcaFiltro === m && { backgroundColor: '#7C3AED', borderColor: '#7C3AED' }]}
+              onPress={() => setMarcaFiltro(marcaFiltro === m ? null : m)}
+            >
+              <Text style={[styles.catFiltroText, marcaFiltro === m && { color: '#fff' }]}>{m}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
       {/* Valor del inventario */}
       {articulos.length > 0 && (
         <View style={styles.inventarioBanner}>
@@ -189,6 +223,9 @@ function makeStyles(C) {
     nombre: { fontSize: 15, fontWeight: '600', color: C.text },
     catBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
     catText: { fontSize: 10, fontWeight: '700' },
+    marcaBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#F3E8FF' },
+    marcaText: { fontSize: 10, fontWeight: '700', color: '#7C3AED' },
+    marcaFiltroBase: { borderColor: '#7C3AED33' },
     stockRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 },
     stockBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
     stockText: { fontSize: 12, fontWeight: '600' },

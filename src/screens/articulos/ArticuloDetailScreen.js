@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
@@ -51,6 +51,29 @@ export default function ArticuloDetailScreen({ route, navigation }) {
     cargar();
   }, [idarticulo]));
 
+  const eliminarCompra = (compra) => {
+    // Permitir eliminar solo si el stock actual cubre toda la cantidad de esta compra
+    if (stock < compra.cantidad) {
+      Alert.alert(
+        'No se puede eliminar',
+        `Ya se vendieron unidades de este lote. Stock actual: ${stock}, lote: ${compra.cantidad} unid.\n\nSolo puedes eliminar un lote si el stock está completo (sin ventas).`
+      );
+      return;
+    }
+    Alert.alert(
+      '🗑️ Eliminar lote de stock',
+      `¿Eliminar el lote de ${compra.cantidad} unid. del ${compra.fecha}?\n\nEsto reducirá el stock en ${compra.cantidad} unidades.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar', style: 'destructive', onPress: async () => {
+            await db.runAsync('DELETE FROM compras WHERE idcompra = ?', [compra.idcompra]);
+          }
+        }
+      ]
+    );
+  };
+
   if (!articulo) return null;
 
   const ultimaCompra = compras[0];
@@ -66,6 +89,11 @@ export default function ArticuloDetailScreen({ route, navigation }) {
           : <View style={styles.imgPlaceholder}><Text style={{ fontSize: 48 }}>📦</Text></View>
         }
         <Text style={styles.nombre}>{articulo.nombre}</Text>
+        {articulo.marca ? (
+          <View style={styles.marcaBadge}>
+            <Text style={styles.marcaText}>🏷️ {articulo.marca}</Text>
+          </View>
+        ) : null}
         {articulo.detalle ? <Text style={styles.detalle}>{articulo.detalle}</Text> : null}
 
         <View style={[styles.stockBadge, { backgroundColor: stock > 0 ? '#DCFCE7' : '#FEE2E2' }]}>
@@ -131,7 +159,15 @@ export default function ArticuloDetailScreen({ route, navigation }) {
             <View key={c.idcompra} style={[styles.histCard, STYLES.shadow]}>
               <View style={styles.histHeader}>
                 <Text style={styles.histFecha}>{c.fecha}</Text>
-                <View style={styles.cantBadge}><Text style={styles.cantText}>+{c.cantidad} unid.</Text></View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={styles.cantBadge}><Text style={styles.cantText}>+{c.cantidad} unid.</Text></View>
+                  <TouchableOpacity onPress={() => navigation.navigate('CompraForm', { idarticulo, idcompra: c.idcompra })}>
+                    <Text style={{ fontSize: 16 }}>✏️</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => eliminarCompra(c)}>
+                    <Text style={{ fontSize: 16 }}>🗑️</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
               <View style={styles.histRow}>
                 <DataChip label="Compra" value={`Bs. ${Number(c.precio_compra).toFixed(2)}`} C={COLORS} />
@@ -220,6 +256,8 @@ function makeStyles(C) {
     img: { width: 120, height: 120, borderRadius: 12, marginBottom: 10 },
     imgPlaceholder: { width: 120, height: 120, borderRadius: 12, backgroundColor: C.border, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
     nombre: { fontSize: 20, fontWeight: 'bold', color: C.text, textAlign: 'center' },
+    marcaBadge: { backgroundColor: '#F3E8FF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 3, marginTop: 4 },
+    marcaText: { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
     detalle: { fontSize: 13, color: C.textLight, marginTop: 4, textAlign: 'center' },
     stockBadge: { borderRadius: 8, paddingHorizontal: 16, paddingVertical: 6, marginTop: 12 },
     stockText: { fontSize: 14, fontWeight: '700' },

@@ -42,6 +42,7 @@ export const initDatabase = async (db) => {
       idcategoria INTEGER,
       codigo_barras TEXT,
       sku TEXT,
+      marca TEXT,
       FOREIGN KEY (idcategoria) REFERENCES categorias(idcategoria)
     );
 
@@ -114,6 +115,7 @@ export const initDatabase = async (db) => {
     'ALTER TABLE articulos ADD COLUMN idcategoria INTEGER',
     'ALTER TABLE articulos ADD COLUMN codigo_barras TEXT',
     'ALTER TABLE articulos ADD COLUMN sku TEXT',
+    'ALTER TABLE articulos ADD COLUMN marca TEXT',
   ];
   for (const sql of migraciones) {
     try { await db.execAsync(sql); } catch (_) {}

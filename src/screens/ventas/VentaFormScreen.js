@@ -18,6 +18,22 @@ import { STYLES } from '../../theme';
 const calcSubtotal = (cantidad, precio, descuento) =>
   (parseFloat(cantidad) || 0) * (parseFloat(precio) || 0) * (1 - (parseFloat(descuento) || 0) / 100);
 
+const hoyFormateado = () => {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
+const parsearFecha = (str) => {
+  const parts = str.split('/');
+  if (parts.length !== 3 || parts[2].length !== 4) return null;
+  const [dd, mm, yyyy] = parts;
+  if (isNaN(Number(dd)) || isNaN(Number(mm)) || isNaN(Number(yyyy))) return null;
+  return `${yyyy}-${mm}-${dd} 00:00:00`;
+};
+
 export default function VentaFormScreen({ navigation }) {
   const db = useSQLiteContext();
   const { COLORS } = useTheme();
@@ -28,6 +44,7 @@ export default function VentaFormScreen({ navigation }) {
   const [clienteSel, setClienteSel] = useState(null);
   const [items, setItems] = useState([]);
   const [detalle, setDetalle] = useState('');
+  const [fecha, setFecha] = useState(hoyFormateado());
   const [modalClientes, setModalClientes] = useState(false);
   const [modalArticulos, setModalArticulos] = useState(false);
   const [busqCliente, setBusqCliente] = useState('');
@@ -95,8 +112,8 @@ export default function VentaFormScreen({ navigation }) {
     }
 
     const result = await db.runAsync(
-      'INSERT INTO ventas (idcliente, total, detalle) VALUES (?,?,?)',
-      [clienteSel.idcliente, total, detalle]
+      'INSERT INTO ventas (idcliente, total, detalle, fecha) VALUES (?,?,?,?)',
+      [clienteSel.idcliente, total, detalle, parsearFecha(fecha) || new Date().toISOString().slice(0, 19).replace('T', ' ')]
     );
     const idventa = result.lastInsertRowId;
 
@@ -130,8 +147,22 @@ export default function VentaFormScreen({ navigation }) {
         <Text style={{ color: COLORS.textLight }}>▼</Text>
       </TouchableOpacity>
 
+      {/* ── Fecha ── */}
+      <View style={{ marginTop: 16, marginBottom: 14 }}>
+        <Text style={styles.label}>Fecha (DD/MM/AAAA)</Text>
+        <TextInput
+          style={styles.input}
+          value={fecha}
+          onChangeText={setFecha}
+          keyboardType="numeric"
+          placeholder="DD/MM/AAAA"
+          placeholderTextColor={COLORS.textLight}
+          maxLength={10}
+        />
+      </View>
+
       {/* ── Artículos ── */}
-      <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Artículos *</Text>
+      <Text style={styles.sectionTitle}>Artículos *</Text>
       {items.map(item => (
         <View key={item.idarticulo} style={[styles.itemCard, STYLES.shadow]}>
           <View style={styles.itemHeader}>

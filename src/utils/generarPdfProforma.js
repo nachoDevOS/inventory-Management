@@ -1,7 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-export const generarYCompartirPDF = async ({ proforma, cliente, items }) => {
+export const generarYCompartirPDF = async ({ proforma, cliente, items, negocio = {} }) => {
   const total = items.reduce((s, i) => s + i.subtotal, 0);
   const totalBruto = items.reduce((s, i) => s + i.cantidad * i.precio_cotizacion, 0);
   const totalDescuento = totalBruto - total;
@@ -9,6 +9,11 @@ export const generarYCompartirPDF = async ({ proforma, cliente, items }) => {
   const fecha = new Date().toLocaleDateString('es-BO', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
+
+  const nombreNegocio    = negocio.nombre_negocio || 'Soluciones Tecnológicas';
+  const telefonoNegocio  = negocio.telefono  || '';
+  const direccionNegocio = negocio.direccion || '';
+  const nitNegocio       = negocio.nit       || '';
 
   const filasItems = items.map((item, idx) => `
     <tr class="${idx % 2 === 0 ? 'fila-par' : 'fila-impar'}">
@@ -98,8 +103,10 @@ export const generarYCompartirPDF = async ({ proforma, cliente, items }) => {
 
   <div class="header">
     <div class="empresa">
-      <h1>Soluciones Tecnológicas</h1>
-      <p>Inventory Management</p>
+      <h1>${nombreNegocio}</h1>
+      ${nitNegocio ? `<p>NIT / RUC: ${nitNegocio}</p>` : ''}
+      ${direccionNegocio ? `<p>📍 ${direccionNegocio}</p>` : ''}
+      ${telefonoNegocio ? `<p>📞 ${telefonoNegocio}</p>` : ''}
     </div>
     <div class="doc-info">
       <div class="doc-numero">PROFORMA <span>#${proforma.idproforma}</span></div>

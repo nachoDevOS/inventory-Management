@@ -11,15 +11,45 @@ import { STYLES } from '../../theme';
 const calcSubtotal = (cantidad, precio, descuento) =>
   (parseFloat(cantidad) || 0) * (parseFloat(precio) || 0) * (1 - (parseFloat(descuento) || 0) / 100);
 
-export default function ProformaFormScreen({ navigation }) {
+// Hoy en formato DD/MM/YYYY
+const hoyFormateado = () => {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
+// Convierte DD/MM/YYYY → YYYY-MM-DD HH:MM:SS (para SQLite)
+const parsearFecha = (str) => {
+  const parts = str.split('/');
+  if (parts.length !== 3 || parts[2].length !== 4) return null;
+  const [dd, mm, yyyy] = parts;
+  if (isNaN(Number(dd)) || isNaN(Number(mm)) || isNaN(Number(yyyy))) return null;
+  return `${yyyy}-${mm}-${dd} 00:00:00`;
+};
+
+// Convierte "YYYY-MM-DD HH:MM:SS" → "DD/MM/YYYY"
+const sqlFechaADisplay = (sqlFecha) => {
+  if (!sqlFecha) return hoyFormateado();
+  const dateStr = sqlFecha.split(' ')[0];
+  const [yyyy, mm, dd] = dateStr.split('-');
+  if (!yyyy || !mm || !dd) return hoyFormateado();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
+export default function ProformaFormScreen({ route, navigation }) {
   const db = useSQLiteContext();
   const { COLORS } = useTheme();
   const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
+  const { idproforma: idEdit } = route.params || {};
+  const modoEdicion = !!idEdit;
   const [clientes, setClientes] = useState([]);
   const [articulos, setArticulos] = useState([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [items, setItems] = useState([]);
   const [detalle, setDetalle] = useState('');
+  const [fecha, setFecha] = useState(hoyFormateado());
   const [modalClientes, setModalClientes] = useState(false);
   const [modalArticulos, setModalArticulos] = useState(false);
   const [busqCliente, setBusqCliente] = useState('');
@@ -34,7 +64,34 @@ export default function ProformaFormScreen({ navigation }) {
         COALESCE((SELECT MAX(c.precio_venta_sugerido) FROM compras c WHERE c.idarticulo = a.idarticulo ORDER BY c.fecha DESC LIMIT 1), 0) AS precio_sugerido
       FROM articulos a ORDER BY a.nombre ASC
     `).then(setArticulos);
-  }, []);
+
+    if (idEdit) {
+      db.getFirstAsync('SELECT * FROM proformas WHERE idproforma = ?', [idEdit]).then(async p => {
+        if (!p) return;
+        setDetalle(p.detalle || '');
+        if (p.fecha) setFecha(sqlFechaADisplay(p.fecha));
+        const c = await db.getFirstAsync('SELECT * FROM clientes WHERE idcliente = ?', [p.idcliente]);
+        if (c) setClienteSeleccionado(c);
+        const it = await db.getAllAsync(`
+          SELECT pd.*, a.nombre,
+            COALESCE((SELECT SUM(c2.cantidad) FROM compras c2 WHERE c2.idarticulo = pd.idarticulo), 0) -
+            COALESCE((SELECT SUM(vd.cantidad) FROM venta_detalle vd WHERE vd.idarticulo = pd.idarticulo), 0) AS stock
+          FROM proforma_detalle pd
+          JOIN articulos a ON a.idarticulo = pd.idarticulo
+          WHERE pd.idproforma = ?
+        `, [idEdit]);
+        setItems(it.map(i => ({
+          idarticulo: i.idarticulo,
+          nombre: i.nombre,
+          cantidad: i.cantidad,
+          precio_cotizacion: i.precio_cotizacion,
+          descuento: i.descuento || 0,
+          subtotal: i.subtotal,
+          stock: i.stock,
+        })));
+      });
+    }
+  }, [idEdit]);
 
   const agregarItem = (articulo) => {
     const existe = items.find(i => i.idarticulo === articulo.idarticulo);
@@ -83,18 +140,33 @@ export default function ProformaFormScreen({ navigation }) {
         Alert.alert('Error', `Cantidad inválida en ${item.nombre}`); return;
       }
     }
-    const result = await db.runAsync(
-      'INSERT INTO proformas (idcliente, detalle) VALUES (?,?)',
-      [clienteSeleccionado.idcliente, detalle]
-    );
-    const idproforma = result.lastInsertRowId;
-    for (const item of items) {
+    if (modoEdicion) {
       await db.runAsync(
-        'INSERT INTO proforma_detalle (idproforma, idarticulo, cantidad, precio_cotizacion, descuento, subtotal) VALUES (?,?,?,?,?,?)',
-        [idproforma, item.idarticulo, item.cantidad, item.precio_cotizacion, item.descuento || 0, item.subtotal]
+        'UPDATE proformas SET idcliente = ?, detalle = ?, fecha = ? WHERE idproforma = ?',
+        [clienteSeleccionado.idcliente, detalle, parsearFecha(fecha) || new Date().toISOString().slice(0, 19).replace('T', ' '), idEdit]
       );
+      await db.runAsync('DELETE FROM proforma_detalle WHERE idproforma = ?', [idEdit]);
+      for (const item of items) {
+        await db.runAsync(
+          'INSERT INTO proforma_detalle (idproforma, idarticulo, cantidad, precio_cotizacion, descuento, subtotal) VALUES (?,?,?,?,?,?)',
+          [idEdit, item.idarticulo, item.cantidad, item.precio_cotizacion, item.descuento || 0, item.subtotal]
+        );
+      }
+      navigation.replace('ProformaDetail', { idproforma: idEdit });
+    } else {
+      const result = await db.runAsync(
+        'INSERT INTO proformas (idcliente, detalle, fecha) VALUES (?,?,?)',
+        [clienteSeleccionado.idcliente, detalle, parsearFecha(fecha) || new Date().toISOString().slice(0, 19).replace('T', ' ')]
+      );
+      const idproforma = result.lastInsertRowId;
+      for (const item of items) {
+        await db.runAsync(
+          'INSERT INTO proforma_detalle (idproforma, idarticulo, cantidad, precio_cotizacion, descuento, subtotal) VALUES (?,?,?,?,?,?)',
+          [idproforma, item.idarticulo, item.cantidad, item.precio_cotizacion, item.descuento || 0, item.subtotal]
+        );
+      }
+      navigation.replace('ProformaDetail', { idproforma });
     }
-    navigation.replace('ProformaDetail', { idproforma });
   };
 
   const clientesFiltrados = clientes.filter(c =>
@@ -115,7 +187,20 @@ export default function ProformaFormScreen({ navigation }) {
         <Text style={styles.selectorArrow}>▼</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Artículos</Text>
+      <View style={[styles.campo, { marginTop: 16 }]}>
+        <Text style={styles.label}>Fecha (DD/MM/AAAA)</Text>
+        <TextInput
+          style={styles.input}
+          value={fecha}
+          onChangeText={setFecha}
+          keyboardType="numeric"
+          placeholder="DD/MM/AAAA"
+          placeholderTextColor={COLORS.textLight}
+          maxLength={10}
+        />
+      </View>
+
+      <Text style={styles.sectionTitle}>Artículos</Text>
       {items.map(item => (
         <View key={item.idarticulo} style={[styles.itemCard, STYLES.shadow]}>
           <View style={styles.itemHeader}>
@@ -190,7 +275,7 @@ export default function ProformaFormScreen({ navigation }) {
       </View>
 
       <TouchableOpacity style={styles.btnGuardar} onPress={guardar}>
-        <Text style={styles.btnGuardarText}>💾 Guardar Proforma</Text>
+        <Text style={styles.btnGuardarText}>{modoEdicion ? '💾 Actualizar Proforma' : '💾 Guardar Proforma'}</Text>
       </TouchableOpacity>
 
       <Modal visible={modalClientes} animationType="slide" onRequestClose={() => setModalClientes(false)}>

@@ -20,7 +20,8 @@ export default function CompraFormScreen({ route, navigation }) {
   const db = useSQLiteContext();
   const { COLORS } = useTheme();
   const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
-  const { idarticulo } = route.params;
+  const { idarticulo, idcompra } = route.params;
+  const modoEdicion = !!idcompra;
   const [articulo, setArticulo] = useState(null);
   const [form, setForm] = useState({
     cantidad: '1',
@@ -32,7 +33,18 @@ export default function CompraFormScreen({ route, navigation }) {
 
   useEffect(() => {
     db.getFirstAsync('SELECT * FROM articulos WHERE idarticulo = ?', [idarticulo]).then(setArticulo);
-  }, [idarticulo]);
+    if (idcompra) {
+      db.getFirstAsync('SELECT * FROM compras WHERE idcompra = ?', [idcompra]).then(c => {
+        if (c) setForm({
+          cantidad: String(c.cantidad),
+          precio_compra: String(c.precio_compra),
+          precio_envio: String(c.precio_envio),
+          precio_venta_sugerido: String(c.precio_venta_sugerido),
+          detalle: c.detalle || '',
+        });
+      });
+    }
+  }, [idarticulo, idcompra]);
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
@@ -52,12 +64,19 @@ export default function CompraFormScreen({ route, navigation }) {
   const esGanancia = gananciaXUnidad >= 0;
 
   const guardar = async () => {
-    if (!cantidad || cantidad <= 0) { Alert.alert('Error', 'La cantidad debe ser mayor a 0'); return; }
-    if (isNaN(precioCompra) || precioCompra < 0) { Alert.alert('Error', 'Ingresa un precio de compra válido'); return; }
-    await db.runAsync(
-      `INSERT INTO compras (idarticulo, cantidad, precio_compra, precio_envio, precio_venta_sugerido, detalle) VALUES (?,?,?,?,?,?)`,
-      [idarticulo, cantidad, precioCompra, precioEnvio, precioVenta || 0, form.detalle]
-    );
+    if (modoEdicion) {
+      await db.runAsync(
+        'UPDATE compras SET precio_venta_sugerido = ? WHERE idcompra = ?',
+        [precioVenta || 0, idcompra]
+      );
+    } else {
+      if (!cantidad || cantidad <= 0) { Alert.alert('Error', 'La cantidad debe ser mayor a 0'); return; }
+      if (isNaN(precioCompra) || precioCompra < 0) { Alert.alert('Error', 'Ingresa un precio de compra válido'); return; }
+      await db.runAsync(
+        `INSERT INTO compras (idarticulo, cantidad, precio_compra, precio_envio, precio_venta_sugerido, detalle) VALUES (?,?,?,?,?,?)`,
+        [idarticulo, cantidad, precioCompra, precioEnvio, precioVenta || 0, form.detalle]
+      );
+    }
     navigation.goBack();
   };
 
@@ -71,19 +90,44 @@ export default function CompraFormScreen({ route, navigation }) {
         </View>
       )}
 
-      <Campo label="Cantidad *" value={form.cantidad} onChangeText={v => set('cantidad', v)}
-        keyboardType="numeric" placeholder="1" hint="Número de unidades que compraste" S={styles} C={COLORS} />
-      <Campo label="Precio de Compra por Unidad (Bs.) *" value={form.precio_compra}
-        onChangeText={v => set('precio_compra', v)} keyboardType="decimal-pad" placeholder="0.00"
-        hint="Costo individual de cada unidad" S={styles} C={COLORS} />
-      <Campo label="Precio de Envío Total (Bs.)" value={form.precio_envio}
-        onChangeText={v => set('precio_envio', v)} keyboardType="decimal-pad" placeholder="0.00"
-        hint={`Se divide entre ${cantidad} unid. → Bs. ${envioXUnidad.toFixed(2)} por unidad`} S={styles} C={COLORS} />
-      <Campo label="Precio de Venta Sugerido (Bs.)" value={form.precio_venta_sugerido}
-        onChangeText={v => set('precio_venta_sugerido', v)} keyboardType="decimal-pad" placeholder="0.00"
-        hint="Precio al que planeas vender cada unidad" S={styles} C={COLORS} />
-      <Campo label="Detalle / Observaciones" value={form.detalle} onChangeText={v => set('detalle', v)}
-        placeholder="Notas de la compra (proveedor, número de factura, etc.)" multiline numberOfLines={2} S={styles} C={COLORS} />
+      {modoEdicion ? (
+        <>
+          <View style={styles.infoReadOnly}>
+            <Text style={styles.infoReadOnlyTitle}>📦 Datos del lote (no editables)</Text>
+            <View style={styles.infoReadOnlyRow}>
+              <Text style={styles.infoReadOnlyLabel}>Cantidad:</Text>
+              <Text style={styles.infoReadOnlyValor}>{cantidad} unidades</Text>
+            </View>
+            <View style={styles.infoReadOnlyRow}>
+              <Text style={styles.infoReadOnlyLabel}>Precio de compra:</Text>
+              <Text style={styles.infoReadOnlyValor}>Bs. {precioCompra.toFixed(2)}</Text>
+            </View>
+            <View style={styles.infoReadOnlyRow}>
+              <Text style={styles.infoReadOnlyLabel}>Precio de envío:</Text>
+              <Text style={styles.infoReadOnlyValor}>Bs. {precioEnvio.toFixed(2)}</Text>
+            </View>
+          </View>
+          <Campo label="Precio de Venta Sugerido (Bs.)" value={form.precio_venta_sugerido}
+            onChangeText={v => set('precio_venta_sugerido', v)} keyboardType="decimal-pad" placeholder="0.00"
+            hint="Actualiza el precio al que planeas vender cada unidad" S={styles} C={COLORS} />
+        </>
+      ) : (
+        <>
+          <Campo label="Cantidad *" value={form.cantidad} onChangeText={v => set('cantidad', v)}
+            keyboardType="numeric" placeholder="1" hint="Número de unidades que compraste" S={styles} C={COLORS} />
+          <Campo label="Precio de Compra por Unidad (Bs.) *" value={form.precio_compra}
+            onChangeText={v => set('precio_compra', v)} keyboardType="decimal-pad" placeholder="0.00"
+            hint="Costo individual de cada unidad" S={styles} C={COLORS} />
+          <Campo label="Precio de Envío Total (Bs.)" value={form.precio_envio}
+            onChangeText={v => set('precio_envio', v)} keyboardType="decimal-pad" placeholder="0.00"
+            hint={`Se divide entre ${cantidad} unid. → Bs. ${envioXUnidad.toFixed(2)} por unidad`} S={styles} C={COLORS} />
+          <Campo label="Precio de Venta Sugerido (Bs.)" value={form.precio_venta_sugerido}
+            onChangeText={v => set('precio_venta_sugerido', v)} keyboardType="decimal-pad" placeholder="0.00"
+            hint="Precio al que planeas vender cada unidad" S={styles} C={COLORS} />
+          <Campo label="Detalle / Observaciones" value={form.detalle} onChangeText={v => set('detalle', v)}
+            placeholder="Notas de la compra (proveedor, número de factura, etc.)" multiline numberOfLines={2} S={styles} C={COLORS} />
+        </>
+      )}
 
       {/* ── Resumen de costos ── */}
       <View style={[styles.resumenCosto, STYLES.shadow]}>
@@ -153,7 +197,7 @@ export default function CompraFormScreen({ route, navigation }) {
       )}
 
       <TouchableOpacity style={styles.btnGuardar} onPress={guardar}>
-        <Text style={styles.btnGuardarText}>✅ Registrar Compra</Text>
+        <Text style={styles.btnGuardarText}>{modoEdicion ? '💾 Actualizar Precio de Venta' : '✅ Registrar Compra'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -213,6 +257,11 @@ function makeStyles(C) {
     advertenciaText: { fontSize: 12, color: C.danger, lineHeight: 18 },
     sugerencia: { backgroundColor: '#FFFBEB', borderRadius: 8, padding: 10, marginTop: 6 },
     sugerenciaText: { fontSize: 12, color: C.warning },
+    infoReadOnly: { backgroundColor: C.card, borderRadius: 10, padding: 14, marginBottom: 14, borderLeftWidth: 4, borderLeftColor: C.border },
+    infoReadOnlyTitle: { fontSize: 12, fontWeight: '700', color: C.textLight, marginBottom: 8, textTransform: 'uppercase' },
+    infoReadOnlyRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+    infoReadOnlyLabel: { fontSize: 13, color: C.textLight },
+    infoReadOnlyValor: { fontSize: 13, fontWeight: '600', color: C.text },
     btnGuardar: { backgroundColor: C.success, borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 8 },
     btnGuardarText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   });

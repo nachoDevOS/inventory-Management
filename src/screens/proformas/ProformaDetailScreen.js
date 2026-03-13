@@ -6,12 +6,9 @@ import { useTheme } from '../../context/ThemeContext';
 import { STYLES } from '../../theme';
 import { generarYCompartirPDF } from '../../utils/generarPdfProforma';
 
-const ESTADOS = ['pendiente', 'aprobada', 'rechazada', 'convertida'];
 const ESTADO_COLOR = {
   pendiente: { bg: '#FEF3C7', text: '#D97706' },
-  aprobada: { bg: '#DCFCE7', text: '#16A34A' },
   convertida: { bg: '#DBEAFE', text: '#2563EB' },
-  rechazada: { bg: '#FEE2E2', text: '#DC2626' },
 };
 
 export default function ProformaDetailScreen({ route, navigation }) {
@@ -23,8 +20,15 @@ export default function ProformaDetailScreen({ route, navigation }) {
   const [cliente, setCliente] = useState(null);
   const [items, setItems] = useState([]);
   const [generandoPDF, setGenerandoPDF] = useState(false);
+  const [negocio, setNegocio] = useState({});
 
   const cargar = useCallback(async () => {
+    const rows = await db.getAllAsync(
+      "SELECT clave, valor FROM configuracion WHERE clave IN ('nombre_negocio','telefono','direccion','nit')"
+    );
+    const map = {};
+    rows.forEach(r => { map[r.clave] = r.valor; });
+    setNegocio(map);
     const p = await db.getFirstAsync('SELECT * FROM proformas WHERE idproforma = ?', [idproforma]);
     setProforma(p);
     if (p) {
@@ -45,19 +49,12 @@ export default function ProformaDetailScreen({ route, navigation }) {
   const exportarPDF = async () => {
     setGenerandoPDF(true);
     try {
-      await generarYCompartirPDF({ proforma, cliente, items });
+      await generarYCompartirPDF({ proforma, cliente, items, negocio });
     } catch (e) {
       Alert.alert('Error', 'No se pudo generar el PDF');
     } finally {
       setGenerandoPDF(false);
     }
-  };
-
-  const cambiarEstado = (nuevoEstado) => {
-    Alert.alert('Cambiar Estado', `¿Cambiar a "${nuevoEstado}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Confirmar', onPress: async () => { await db.runAsync('UPDATE proformas SET estado = ? WHERE idproforma = ?', [nuevoEstado, idproforma]); cargar(); } }
-    ]);
   };
 
   const convertirAVenta = async () => {
@@ -156,22 +153,15 @@ export default function ProformaDetailScreen({ route, navigation }) {
       </TouchableOpacity>
 
       {proforma.estado !== 'convertida' && (
-        <>
-          <Text style={styles.sectionTitle}>Cambiar Estado</Text>
-          <View style={styles.estadosRow}>
-            {ESTADOS.filter(e => e !== proforma.estado && e !== 'convertida').map(e => {
-              const ec2 = ESTADO_COLOR[e];
-              return (
-                <TouchableOpacity key={e} style={[styles.estadoBtn, { backgroundColor: ec2.bg }]} onPress={() => cambiarEstado(e)}>
-                  <Text style={[styles.estadoBtnText, { color: ec2.text }]}>{e}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <TouchableOpacity style={styles.btnConvertir} onPress={convertirAVenta}>
-            <Text style={styles.btnConvertirText}>💰 Convertir a Venta</Text>
-          </TouchableOpacity>
-        </>
+        <TouchableOpacity style={styles.btnEditar} onPress={() => navigation.navigate('ProformaForm', { idproforma })}>
+          <Text style={styles.btnEditarText}>✏️ Editar Proforma</Text>
+        </TouchableOpacity>
+      )}
+
+      {proforma.estado !== 'convertida' && (
+        <TouchableOpacity style={styles.btnConvertir} onPress={convertirAVenta}>
+          <Text style={styles.btnConvertirText}>💰 Convertir a Venta</Text>
+        </TouchableOpacity>
       )}
 
       {proforma.estado === 'convertida' && (
@@ -225,5 +215,7 @@ function makeStyles(C) {
     convertidaText: { color: C.success, fontWeight: '600', fontSize: 14 },
     btnPDF: { backgroundColor: '#7C3AED', borderRadius: 10, padding: 13, alignItems: 'center', marginBottom: 12 },
     btnPDFText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+    btnEditar: { backgroundColor: C.card, borderRadius: 10, padding: 13, alignItems: 'center', marginBottom: 12, borderWidth: 1.5, borderColor: C.primary },
+    btnEditarText: { color: C.primary, fontWeight: 'bold', fontSize: 15 },
   });
 }
