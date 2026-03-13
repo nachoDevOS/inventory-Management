@@ -124,7 +124,12 @@ export default function ProformaFormScreen({ route, navigation }) {
     }));
   };
 
-  const quitarItem = (idarticulo) => setItems(items.filter(i => i.idarticulo !== idarticulo));
+  const quitarItem = (idarticulo, nombre) => {
+    Alert.alert('Quitar artículo', `¿Quitar "${nombre}" de la proforma?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Quitar', style: 'destructive', onPress: () => setItems(items.filter(i => i.idarticulo !== idarticulo)) },
+    ]);
+  };
 
   const totalBruto = items.reduce((s, i) =>
     s + (parseFloat(i.cantidad) || 0) * (parseFloat(i.precio_cotizacion) || 0), 0);
@@ -205,7 +210,7 @@ export default function ProformaFormScreen({ route, navigation }) {
         <View key={item.idarticulo} style={[styles.itemCard, STYLES.shadow]}>
           <View style={styles.itemHeader}>
             <Text style={styles.itemNombre}>{item.nombre}</Text>
-            <TouchableOpacity onPress={() => quitarItem(item.idarticulo)}>
+            <TouchableOpacity onPress={() => quitarItem(item.idarticulo, item.nombre)}>
               <Text style={{ color: COLORS.danger, fontSize: 18 }}>✕</Text>
             </TouchableOpacity>
           </View>
