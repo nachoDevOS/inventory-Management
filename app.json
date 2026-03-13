@@ -38,11 +38,11 @@
       ],
       "expo-sharing"
     ],
+    "owner": "ignacio1997",
     "extra": {
       "eas": {
-        "projectId": "b8ed9c7b-3b08-4513-8447-3b0872e9fd9f"
+        "projectId": "6a9063a0-bbaf-4dd2-bacc-f0ccecd6e057"
       }
-    },
-    "owner": "nachodevos"
+    }
   }
 }
