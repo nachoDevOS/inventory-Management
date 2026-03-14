@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { STYLES } from '../../theme';
-import { generarYCompartirPDF } from '../../utils/generarPdfProforma';
+import { generarYCompartirPDF, PLANTILLAS_PDF } from '../../utils/generarPdfProforma';
 
 const ESTADO_COLOR = {
   pendiente: { bg: '#FEF3C7', text: '#D97706' },
@@ -22,6 +22,8 @@ export default function ProformaDetailScreen({ route, navigation }) {
   const [servicios, setServicios] = useState([]);
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [negocio, setNegocio] = useState({});
+  const [modalPlantilla, setModalPlantilla] = useState(false);
+  const [plantillaSeleccionada, setPlantillaSeleccionada] = useState('clasica');
 
   const cargar = useCallback(async () => {
     const rows = await db.getAllAsync(
@@ -51,10 +53,11 @@ export default function ProformaDetailScreen({ route, navigation }) {
 
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
 
-  const exportarPDF = async () => {
+  const exportarPDF = async (plantillaId) => {
+    setModalPlantilla(false);
     setGenerandoPDF(true);
     try {
-      await generarYCompartirPDF({ proforma, cliente, items, servicios, negocio });
+      await generarYCompartirPDF({ proforma, cliente, items, servicios, negocio, plantillaId });
     } catch (e) {
       Alert.alert('Error', 'No se pudo generar el PDF');
     } finally {
@@ -238,9 +241,34 @@ export default function ProformaDetailScreen({ route, navigation }) {
         );
       })()}
 
-      <TouchableOpacity style={[styles.btnPDF, generandoPDF && { opacity: 0.7 }]} onPress={exportarPDF} disabled={generandoPDF}>
+      <TouchableOpacity style={[styles.btnPDF, generandoPDF && { opacity: 0.7 }]} onPress={() => setModalPlantilla(true)} disabled={generandoPDF}>
         {generandoPDF ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPDFText}>📄 Exportar PDF / Compartir</Text>}
       </TouchableOpacity>
+
+      <Modal visible={modalPlantilla} animationType="slide" transparent onRequestClose={() => setModalPlantilla(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalPlantilla}>
+            <Text style={styles.modalPlantillaTitulo}>Elegir diseño de proforma</Text>
+            {PLANTILLAS_PDF.map(p => (
+              <TouchableOpacity
+                key={p.id}
+                style={[styles.plantillaItem, plantillaSeleccionada === p.id && { borderColor: p.color, borderWidth: 2 }]}
+                onPress={() => { setPlantillaSeleccionada(p.id); exportarPDF(p.id); }}
+              >
+                <View style={[styles.plantillaColor, { backgroundColor: p.color }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.plantillaNombre}>{p.nombre}</Text>
+                  <Text style={styles.plantillaDesc}>{p.descripcion}</Text>
+                </View>
+                {plantillaSeleccionada === p.id && <Text style={{ color: p.color, fontSize: 18 }}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalPlantilla(false)}>
+              <Text style={styles.modalCancelarText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {proforma.estado !== 'convertida' && (
         <TouchableOpacity style={styles.btnEditar} onPress={() => navigation.navigate('ProformaForm', { idproforma })}>
@@ -313,5 +341,14 @@ function makeStyles(C) {
     btnEditarText: { color: C.primary, fontWeight: 'bold', fontSize: 15 },
     btnEliminar: { borderWidth: 1, borderColor: C.danger, borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 16 },
     btnEliminarText: { color: C.danger, fontWeight: '600', fontSize: 14 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalPlantilla: { backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
+    modalPlantillaTitulo: { fontSize: 16, fontWeight: '800', color: C.text, marginBottom: 16, textAlign: 'center' },
+    plantillaItem: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: C.border },
+    plantillaColor: { width: 36, height: 36, borderRadius: 8 },
+    plantillaNombre: { fontSize: 14, fontWeight: '700', color: C.text },
+    plantillaDesc: { fontSize: 12, color: C.textLight, marginTop: 2 },
+    modalCancelar: { marginTop: 6, padding: 14, alignItems: 'center' },
+    modalCancelarText: { color: C.textLight, fontSize: 14 },
   });
 }

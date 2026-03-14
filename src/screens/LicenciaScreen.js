@@ -22,9 +22,10 @@ export default function LicenciaScreen({ onActivar }) {
 
   const handleKeyChange = (text) => {
     const clean = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    // Formato nuevo: XXXX-XXXX-SSSS-MM (14 chars) o legacy: XXXX-XXXX-XXXX (12 chars)
     let formatted = '';
-    for (let i = 0; i < clean.length && i < 12; i++) {
-      if (i === 4 || i === 8) formatted += '-';
+    for (let i = 0; i < clean.length && i < 14; i++) {
+      if (i === 4 || i === 8 || i === 12) formatted += '-';
       formatted += clean[i];
     }
     setKey(formatted);
@@ -32,26 +33,23 @@ export default function LicenciaScreen({ onActivar }) {
   };
 
   const activar = async () => {
-    if (key.replace(/[-\s]/g, '').length < 12) {
-      setError('La clave debe tener 12 caracteres (XXXX-XXXX-XXXX)');
+    const cleanKey = key.replace(/[-\s]/g, '');
+    if (cleanKey.length !== 12 && cleanKey.length !== 14) {
+      setError('La clave debe tener formato XXXX-XXXX-XXXX o XXXX-XXXX-SSSS-MM');
       return;
     }
-    if (!validarLicencia(key, deviceCode)) {
+    const { valida, meses } = validarLicencia(key, deviceCode);
+    if (!valida) {
       setError('Clave inválida o no corresponde a este dispositivo.');
       return;
     }
     setActivando(true);
     try {
       const ahora = new Date().toISOString();
-      await db.runAsync(
-        "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('licencia_activada', '1')"
-      );
-      await db.runAsync(
-        "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('licencia_key', ?)", [key.toUpperCase()]
-      );
-      await db.runAsync(
-        "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('licencia_fecha_activacion', ?)", [ahora]
-      );
+      await db.runAsync("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('licencia_activada', '1')");
+      await db.runAsync("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('licencia_key', ?)", [key.toUpperCase()]);
+      await db.runAsync("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('licencia_fecha_activacion', ?)", [ahora]);
+      await db.runAsync("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('licencia_meses', ?)", [String(meses)]);
       onActivar();
     } catch {
       Alert.alert('Error', 'No se pudo guardar la activación. Intenta de nuevo.');
@@ -90,9 +88,8 @@ export default function LicenciaScreen({ onActivar }) {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>🔐 Activación de Licencia</Text>
           <Text style={styles.cardDesc}>
-            Esta aplicación requiere una clave de licencia válida. La licencia es válida por{' '}
-            <Text style={{ fontWeight: '700', color: '#2563EB' }}>1 año</Text> desde la activación.
-            Cada clave solo funciona en un dispositivo.
+            Esta aplicación requiere una clave de licencia válida.
+            La duración depende del plan contratado. Cada clave solo funciona en un dispositivo.
           </Text>
 
           <Text style={styles.inputLabel}>Clave de Licencia</Text>
@@ -100,11 +97,11 @@ export default function LicenciaScreen({ onActivar }) {
             style={[styles.input, error ? styles.inputError : null]}
             value={key}
             onChangeText={handleKeyChange}
-            placeholder="XXXX-XXXX-XXXX"
+            placeholder="XXXX-XXXX-XXXX-XX"
             placeholderTextColor="#94A3B8"
             autoCapitalize="characters"
             autoCorrect={false}
-            maxLength={14}
+            maxLength={17}
           />
           {error ? <Text style={styles.errorText}>⚠️ {error}</Text> : null}
 

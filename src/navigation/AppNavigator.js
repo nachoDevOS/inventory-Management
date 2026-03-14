@@ -99,8 +99,8 @@ function ConfiguracionStack() {
 }
 
 const TabIcon = ({ emoji }) => (
-  <View style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 32, lineHeight: 40, textAlign: 'center' }}>{emoji}</Text>
+  <View style={{ width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 22, lineHeight: 28, textAlign: 'center' }}>{emoji}</Text>
   </View>
 );
 
@@ -111,7 +111,7 @@ export default function AppNavigator() {
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textLight,
-        tabBarStyle: { paddingBottom: 8, paddingTop: 6, height: 86 },
+        tabBarStyle: { paddingBottom: 6, paddingTop: 4, height: 68 },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 0 },
         tabBarIconStyle: { marginBottom: 0 },
       }}
