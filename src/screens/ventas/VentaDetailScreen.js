@@ -13,6 +13,7 @@ export default function VentaDetailScreen({ route, navigation }) {
   const [venta, setVenta] = useState(null);
   const [cliente, setCliente] = useState(null);
   const [items, setItems] = useState([]);
+  const [servicios, setServicios] = useState([]);
 
   useFocusEffect(useCallback(() => {
     const cargar = async () => {
@@ -28,6 +29,10 @@ export default function VentaDetailScreen({ route, navigation }) {
           WHERE vd.idventa = ?
         `, [idventa]);
         setItems(it);
+        const sv = await db.getAllAsync(
+          'SELECT * FROM venta_servicios WHERE idventa = ?', [idventa]
+        );
+        setServicios(sv);
       }
     };
     cargar();
@@ -39,6 +44,7 @@ export default function VentaDetailScreen({ route, navigation }) {
       {
         text: 'Eliminar', style: 'destructive', onPress: async () => {
           await db.runAsync('DELETE FROM venta_detalle WHERE idventa = ?', [idventa]);
+          await db.runAsync('DELETE FROM venta_servicios WHERE idventa = ?', [idventa]);
           await db.runAsync('DELETE FROM ventas WHERE idventa = ?', [idventa]);
           if (venta?.idproforma) {
             await db.runAsync('UPDATE proformas SET estado = ? WHERE idproforma = ?', ['aprobada', venta.idproforma]);
@@ -67,30 +73,65 @@ export default function VentaDetailScreen({ route, navigation }) {
         {venta.detalle ? <InfoRow label="Detalle" value={venta.detalle} S={styles} /> : null}
       </View>
 
-      <Text style={styles.sectionTitle}>Artículos vendidos</Text>
-      {items.map(item => {
-        const bruto = item.cantidad * item.precio_venta;
-        const ahorrado = bruto - item.subtotal;
-        return (
-          <View key={item.iddetalle} style={[styles.itemCard, STYLES.shadow]}>
-            <Text style={styles.itemNombre}>{item.articulo_nombre}</Text>
-            <View style={styles.itemRow}>
-              <Text style={styles.itemSub}>Cant: {item.cantidad}</Text>
-              <Text style={styles.itemSub}>Precio: Bs. {Number(item.precio_venta).toFixed(2)}</Text>
-              {item.descuento > 0 && (
-                <View style={styles.descuentoBadge}>
-                  <Text style={styles.descuentoText}>{item.descuento}% desc.</Text>
+      {items.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Artículos vendidos</Text>
+          {items.map(item => {
+            const bruto = item.cantidad * item.precio_venta;
+            const ahorrado = bruto - item.subtotal;
+            return (
+              <View key={item.iddetalle} style={[styles.itemCard, STYLES.shadow]}>
+                <Text style={styles.itemNombre}>{item.articulo_nombre}</Text>
+                <View style={styles.itemRow}>
+                  <Text style={styles.itemSub}>Cant: {item.cantidad}</Text>
+                  <Text style={styles.itemSub}>Precio: Bs. {Number(item.precio_venta).toFixed(2)}</Text>
+                  {item.descuento > 0 && (
+                    <View style={styles.descuentoBadge}>
+                      <Text style={styles.descuentoText}>{item.descuento}% desc.</Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-            {item.descuento > 0 && <Text style={styles.ahorroText}>Ahorro: Bs. {ahorrado.toFixed(2)}</Text>}
-            <Text style={styles.itemSubtotal}>Subtotal: Bs. {Number(item.subtotal).toFixed(2)}</Text>
-          </View>
-        );
-      })}
+                {item.descuento > 0 && <Text style={styles.ahorroText}>Ahorro: Bs. {ahorrado.toFixed(2)}</Text>}
+                <Text style={styles.itemSubtotal}>Subtotal: Bs. {Number(item.subtotal).toFixed(2)}</Text>
+              </View>
+            );
+          })}
+        </>
+      )}
+
+      {servicios.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Servicios</Text>
+          {servicios.map(sv => {
+            const bruto = sv.cantidad * sv.precio;
+            const ahorrado = bruto - sv.subtotal;
+            return (
+              <View key={sv.idservicio} style={[styles.itemCard, styles.servicioCard, STYLES.shadow]}>
+                <View style={styles.itemRow}>
+                  <Text style={styles.itemNombre}>{sv.nombre}</Text>
+                  <View style={styles.servicioBadge}><Text style={styles.servicioBadgeText}>SERVICIO</Text></View>
+                </View>
+                <View style={styles.itemRow}>
+                  <Text style={styles.itemSub}>Cant: {sv.cantidad}</Text>
+                  <Text style={styles.itemSub}>Precio: Bs. {Number(sv.precio).toFixed(2)}</Text>
+                  {sv.descuento > 0 && (
+                    <View style={styles.descuentoBadge}>
+                      <Text style={styles.descuentoText}>{sv.descuento}% desc.</Text>
+                    </View>
+                  )}
+                </View>
+                {sv.descuento > 0 && <Text style={styles.ahorroText}>Ahorro: Bs. {ahorrado.toFixed(2)}</Text>}
+                <Text style={styles.itemSubtotal}>Subtotal: Bs. {Number(sv.subtotal).toFixed(2)}</Text>
+              </View>
+            );
+          })}
+        </>
+      )}
 
       {(() => {
-        const brutoTotal = items.reduce((s, i) => s + i.cantidad * i.precio_venta, 0);
+        const brutoItems = items.reduce((s, i) => s + i.cantidad * i.precio_venta, 0);
+        const brutoServ = servicios.reduce((s, sv) => s + sv.cantidad * sv.precio, 0);
+        const brutoTotal = brutoItems + brutoServ;
         const descTotal = brutoTotal - venta.total;
         return (
           <View style={styles.totalContainer}>
@@ -149,13 +190,16 @@ function makeStyles(C) {
     infoValue: { fontSize: 13, color: C.text, flex: 1 },
     sectionTitle: { fontSize: 15, fontWeight: 'bold', color: C.text, marginBottom: 8 },
     itemCard: { backgroundColor: C.card, borderRadius: 8, padding: 10, marginBottom: 6 },
-    itemNombre: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 4 },
+    servicioCard: { borderLeftWidth: 3, borderLeftColor: '#7C3AED' },
+    itemNombre: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 4, flex: 1 },
     itemRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 2 },
     itemSub: { fontSize: 12, color: C.textLight },
     descuentoBadge: { backgroundColor: '#FEE2E2', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
     descuentoText: { fontSize: 11, color: C.danger, fontWeight: '700' },
     ahorroText: { fontSize: 11, color: C.danger, marginBottom: 2 },
     itemSubtotal: { fontSize: 13, fontWeight: 'bold', color: C.success, marginTop: 2 },
+    servicioBadge: { backgroundColor: '#EDE9FE', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
+    servicioBadgeText: { fontSize: 10, color: '#7C3AED', fontWeight: '700' },
     totalContainer: { backgroundColor: C.card, borderRadius: 8, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: C.border },
     totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
     totalLabelSub: { fontSize: 13, color: C.textLight },

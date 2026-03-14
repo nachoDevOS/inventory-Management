@@ -1,9 +1,13 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-export const generarYCompartirPDF = async ({ proforma, cliente, items, negocio = {} }) => {
-  const total = items.reduce((s, i) => s + i.subtotal, 0);
-  const totalBruto = items.reduce((s, i) => s + i.cantidad * i.precio_cotizacion, 0);
+export const generarYCompartirPDF = async ({ proforma, cliente, items, servicios = [], negocio = {} }) => {
+  const totalItems = items.reduce((s, i) => s + i.subtotal, 0);
+  const totalServicios = servicios.reduce((s, sv) => s + sv.subtotal, 0);
+  const total = totalItems + totalServicios;
+  const totalBrutoItems = items.reduce((s, i) => s + i.cantidad * i.precio_cotizacion, 0);
+  const totalBrutoServ = servicios.reduce((s, sv) => s + sv.cantidad * sv.precio, 0);
+  const totalBruto = totalBrutoItems + totalBrutoServ;
   const totalDescuento = totalBruto - total;
   const hayDescuentos = totalDescuento > 0.001;
   const fecha = new Date().toLocaleDateString('es-BO', {
@@ -15,19 +19,34 @@ export const generarYCompartirPDF = async ({ proforma, cliente, items, negocio =
   const direccionNegocio = negocio.direccion || '';
   const nitNegocio       = negocio.nit       || '';
 
-  const filasItems = items.map((item, idx) => `
-    <tr class="${idx % 2 === 0 ? 'fila-par' : 'fila-impar'}">
-      <td>${item.articulo_nombre}</td>
-      <td class="centro">${item.cantidad}</td>
-      <td class="derecha">Bs. ${Number(item.precio_cotizacion).toFixed(2)}</td>
-      <td class="centro">
-        ${item.descuento > 0
-          ? `<span class="desc-badge">${Number(item.descuento).toFixed(0)}%</span>`
-          : '—'}
-      </td>
-      <td class="derecha total-col">Bs. ${Number(item.subtotal).toFixed(2)}</td>
-    </tr>
-  `).join('');
+  const todasLasFilas = [
+    ...items.map((item, idx) => `
+      <tr class="${idx % 2 === 0 ? 'fila-par' : 'fila-impar'}">
+        <td>${item.articulo_nombre}</td>
+        <td class="centro">${item.cantidad}</td>
+        <td class="derecha">Bs. ${Number(item.precio_cotizacion).toFixed(2)}</td>
+        <td class="centro">
+          ${item.descuento > 0
+            ? `<span class="desc-badge">${Number(item.descuento).toFixed(0)}%</span>`
+            : '—'}
+        </td>
+        <td class="derecha total-col">Bs. ${Number(item.subtotal).toFixed(2)}</td>
+      </tr>
+    `),
+    ...servicios.map((sv, idx) => `
+      <tr class="${(items.length + idx) % 2 === 0 ? 'fila-par' : 'fila-impar'}">
+        <td>${sv.nombre}</td>
+        <td class="centro">${sv.cantidad}</td>
+        <td class="derecha">Bs. ${Number(sv.precio).toFixed(2)}</td>
+        <td class="centro">
+          ${sv.descuento > 0
+            ? `<span class="desc-badge">${Number(sv.descuento).toFixed(0)}%</span>`
+            : '—'}
+        </td>
+        <td class="derecha total-col">Bs. ${Number(sv.subtotal).toFixed(2)}</td>
+      </tr>
+    `),
+  ].join('');
 
   const html = `
 <!DOCTYPE html>
@@ -75,6 +94,7 @@ export const generarYCompartirPDF = async ({ proforma, cliente, items, negocio =
     td.derecha { text-align: right; }
     td.total-col { font-weight: 600; color: #1E293B; }
     .desc-badge { background: #FEE2E2; color: #DC2626; font-weight: 700; font-size: 11px; padding: 2px 7px; border-radius: 10px; }
+    .serv-badge { background: #EDE9FE; color: #7C3AED; font-weight: 700; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin-left: 6px; }
 
     /* TOTAL */
     .total-section { display: flex; justify-content: flex-end; margin-top: 0; border-top: 2px solid #E2E8F0; }
@@ -111,7 +131,6 @@ export const generarYCompartirPDF = async ({ proforma, cliente, items, negocio =
     <div class="doc-info">
       <div class="doc-numero">PROFORMA <span>#${proforma.idproforma}</span></div>
       <div class="doc-fecha">Emitida el ${fecha}</div>
-      <div class="estado-badge estado-${proforma.estado}">${proforma.estado}</div>
     </div>
   </div>
 
@@ -126,11 +145,11 @@ export const generarYCompartirPDF = async ({ proforma, cliente, items, negocio =
     </div>
   </div>
 
-  <p class="seccion-titulo">Detalle de artículos</p>
+  <p class="seccion-titulo">Detalle</p>
   <table>
     <thead>
       <tr>
-        <th>Artículo</th>
+        <th>Descripción</th>
         <th class="centro">Cant.</th>
         <th class="derecha">Precio Unit.</th>
         <th class="centro">Descuento</th>
@@ -138,7 +157,7 @@ export const generarYCompartirPDF = async ({ proforma, cliente, items, negocio =
       </tr>
     </thead>
     <tbody>
-      ${filasItems}
+      ${todasLasFilas}
     </tbody>
   </table>
 

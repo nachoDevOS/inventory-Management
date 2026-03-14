@@ -17,8 +17,7 @@ export default function ArticuloDetailScreen({ route, navigation }) {
   const [ventaStats, setVentaStats] = useState({ totalUnidades: 0, totalIngresos: 0 });
   const [tab, setTab] = useState('compras');
 
-  useFocusEffect(useCallback(() => {
-    const cargar = async () => {
+  const cargar = useCallback(async () => {
       const a = await db.getFirstAsync('SELECT * FROM articulos WHERE idarticulo = ?', [idarticulo]);
       setArticulo(a);
       const stockData = await db.getFirstAsync(`
@@ -47,9 +46,9 @@ export default function ArticuloDetailScreen({ route, navigation }) {
         FROM venta_detalle vd WHERE vd.idarticulo = ?
       `, [idarticulo]);
       setVentaStats({ totalUnidades: stats?.total_unidades || 0, totalIngresos: stats?.total_ingresos || 0 });
-    };
-    cargar();
-  }, [idarticulo]));
+  }, [idarticulo]);
+
+  useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
 
   const eliminarCompra = (compra) => {
     // Permitir eliminar solo si el stock actual cubre toda la cantidad de esta compra
@@ -68,6 +67,7 @@ export default function ArticuloDetailScreen({ route, navigation }) {
         {
           text: 'Eliminar', style: 'destructive', onPress: async () => {
             await db.runAsync('DELETE FROM compras WHERE idcompra = ?', [compra.idcompra]);
+            cargar();
           }
         }
       ]

@@ -7,11 +7,9 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useTheme } from '../../context/ThemeContext';
 import { STYLES } from '../../theme';
 
-// subtotal = cantidad * precio * (1 - descuento/100)
 const calcSubtotal = (cantidad, precio, descuento) =>
   (parseFloat(cantidad) || 0) * (parseFloat(precio) || 0) * (1 - (parseFloat(descuento) || 0) / 100);
 
-// Hoy en formato DD/MM/YYYY
 const hoyFormateado = () => {
   const d = new Date();
   const dd = String(d.getDate()).padStart(2, '0');
@@ -20,7 +18,6 @@ const hoyFormateado = () => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-// Convierte DD/MM/YYYY → YYYY-MM-DD HH:MM:SS (para SQLite)
 const parsearFecha = (str) => {
   const parts = str.split('/');
   if (parts.length !== 3 || parts[2].length !== 4) return null;
@@ -29,7 +26,6 @@ const parsearFecha = (str) => {
   return `${yyyy}-${mm}-${dd} 00:00:00`;
 };
 
-// Convierte "YYYY-MM-DD HH:MM:SS" → "DD/MM/YYYY"
 const sqlFechaADisplay = (sqlFecha) => {
   if (!sqlFecha) return hoyFormateado();
   const dateStr = sqlFecha.split(' ')[0];
@@ -48,12 +44,15 @@ export default function ProformaFormScreen({ route, navigation }) {
   const [articulos, setArticulos] = useState([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [items, setItems] = useState([]);
+  const [servicios, setServicios] = useState([]);
   const [detalle, setDetalle] = useState('');
   const [fecha, setFecha] = useState(hoyFormateado());
   const [modalClientes, setModalClientes] = useState(false);
   const [modalArticulos, setModalArticulos] = useState(false);
+  const [modalServicio, setModalServicio] = useState(false);
   const [busqCliente, setBusqCliente] = useState('');
   const [busqArticulo, setBusqArticulo] = useState('');
+  const [nuevoServicio, setNuevoServicio] = useState({ nombre: '', cantidad: '1', precio: '', descuento: '0' });
 
   useEffect(() => {
     db.getAllAsync('SELECT * FROM clientes ORDER BY nombre ASC').then(setClientes);
@@ -88,6 +87,17 @@ export default function ProformaFormScreen({ route, navigation }) {
           descuento: i.descuento || 0,
           subtotal: i.subtotal,
           stock: i.stock,
+        })));
+        const sv = await db.getAllAsync(
+          'SELECT * FROM proforma_servicios WHERE idproforma = ?', [idEdit]
+        );
+        setServicios(sv.map(s => ({
+          _key: String(s.idservicio),
+          nombre: s.nombre,
+          cantidad: s.cantidad,
+          precio: s.precio,
+          descuento: s.descuento || 0,
+          subtotal: s.subtotal,
         })));
       });
     }
@@ -131,15 +141,50 @@ export default function ProformaFormScreen({ route, navigation }) {
     ]);
   };
 
+  const agregarServicio = () => {
+    if (!nuevoServicio.nombre.trim()) { Alert.alert('Error', 'Ingresa el nombre del servicio'); return; }
+    if (!nuevoServicio.precio || parseFloat(nuevoServicio.precio) <= 0) { Alert.alert('Error', 'Ingresa un precio válido'); return; }
+    const subtotal = calcSubtotal(nuevoServicio.cantidad, nuevoServicio.precio, nuevoServicio.descuento);
+    setServicios([...servicios, {
+      _key: String(Date.now()),
+      nombre: nuevoServicio.nombre.trim(),
+      cantidad: parseFloat(nuevoServicio.cantidad) || 1,
+      precio: parseFloat(nuevoServicio.precio) || 0,
+      descuento: parseFloat(nuevoServicio.descuento) || 0,
+      subtotal,
+    }]);
+    setNuevoServicio({ nombre: '', cantidad: '1', precio: '', descuento: '0' });
+    setModalServicio(false);
+  };
+
+  const actualizarServicio = (_key, campo, valor) => {
+    setServicios(servicios.map(s => {
+      if (s._key !== _key) return s;
+      const updated = { ...s, [campo]: valor };
+      updated.subtotal = calcSubtotal(updated.cantidad, updated.precio, updated.descuento);
+      return updated;
+    }));
+  };
+
+  const quitarServicio = (_key, nombre) => {
+    Alert.alert('Quitar servicio', `¿Quitar "${nombre}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Quitar', style: 'destructive', onPress: () => setServicios(servicios.filter(s => s._key !== _key)) },
+    ]);
+  };
+
   const totalBruto = items.reduce((s, i) =>
-    s + (parseFloat(i.cantidad) || 0) * (parseFloat(i.precio_cotizacion) || 0), 0);
+    s + (parseFloat(i.cantidad) || 0) * (parseFloat(i.precio_cotizacion) || 0), 0)
+    + servicios.reduce((s, sv) => s + (parseFloat(sv.cantidad) || 0) * (parseFloat(sv.precio) || 0), 0);
   const totalDescuento = items.reduce((s, i) =>
-    s + ((parseFloat(i.cantidad) || 0) * (parseFloat(i.precio_cotizacion) || 0) * (parseFloat(i.descuento) || 0) / 100), 0);
-  const total = items.reduce((s, i) => s + (i.subtotal || 0), 0);
+    s + ((parseFloat(i.cantidad) || 0) * (parseFloat(i.precio_cotizacion) || 0) * (parseFloat(i.descuento) || 0) / 100), 0)
+    + servicios.reduce((s, sv) => s + ((parseFloat(sv.cantidad) || 0) * (parseFloat(sv.precio) || 0) * (parseFloat(sv.descuento) || 0) / 100), 0);
+  const total = items.reduce((s, i) => s + (i.subtotal || 0), 0)
+    + servicios.reduce((s, sv) => s + (sv.subtotal || 0), 0);
 
   const guardar = async () => {
     if (!clienteSeleccionado) { Alert.alert('Error', 'Selecciona un cliente'); return; }
-    if (items.length === 0) { Alert.alert('Error', 'Agrega al menos un artículo'); return; }
+    if (items.length === 0 && servicios.length === 0) { Alert.alert('Error', 'Agrega al menos un artículo o servicio'); return; }
     for (const item of items) {
       if (!item.cantidad || item.cantidad <= 0) {
         Alert.alert('Error', `Cantidad inválida en ${item.nombre}`); return;
@@ -152,29 +197,43 @@ export default function ProformaFormScreen({ route, navigation }) {
         return;
       }
     }
+    const fechaSql = parsearFecha(fecha) || new Date().toISOString().slice(0, 19).replace('T', ' ');
     if (modoEdicion) {
       await db.runAsync(
         'UPDATE proformas SET idcliente = ?, detalle = ?, fecha = ? WHERE idproforma = ?',
-        [clienteSeleccionado.idcliente, detalle, parsearFecha(fecha) || new Date().toISOString().slice(0, 19).replace('T', ' '), idEdit]
+        [clienteSeleccionado.idcliente, detalle, fechaSql, idEdit]
       );
       await db.runAsync('DELETE FROM proforma_detalle WHERE idproforma = ?', [idEdit]);
+      await db.runAsync('DELETE FROM proforma_servicios WHERE idproforma = ?', [idEdit]);
       for (const item of items) {
         await db.runAsync(
           'INSERT INTO proforma_detalle (idproforma, idarticulo, cantidad, precio_cotizacion, descuento, subtotal) VALUES (?,?,?,?,?,?)',
           [idEdit, item.idarticulo, item.cantidad, item.precio_cotizacion, item.descuento || 0, item.subtotal]
         );
       }
+      for (const sv of servicios) {
+        await db.runAsync(
+          'INSERT INTO proforma_servicios (idproforma, nombre, cantidad, precio, descuento, subtotal) VALUES (?,?,?,?,?,?)',
+          [idEdit, sv.nombre, sv.cantidad, sv.precio, sv.descuento || 0, sv.subtotal]
+        );
+      }
       navigation.replace('ProformaDetail', { idproforma: idEdit });
     } else {
       const result = await db.runAsync(
         'INSERT INTO proformas (idcliente, detalle, fecha) VALUES (?,?,?)',
-        [clienteSeleccionado.idcliente, detalle, parsearFecha(fecha) || new Date().toISOString().slice(0, 19).replace('T', ' ')]
+        [clienteSeleccionado.idcliente, detalle, fechaSql]
       );
       const idproforma = result.lastInsertRowId;
       for (const item of items) {
         await db.runAsync(
           'INSERT INTO proforma_detalle (idproforma, idarticulo, cantidad, precio_cotizacion, descuento, subtotal) VALUES (?,?,?,?,?,?)',
           [idproforma, item.idarticulo, item.cantidad, item.precio_cotizacion, item.descuento || 0, item.subtotal]
+        );
+      }
+      for (const sv of servicios) {
+        await db.runAsync(
+          'INSERT INTO proforma_servicios (idproforma, nombre, cantidad, precio, descuento, subtotal) VALUES (?,?,?,?,?,?)',
+          [idproforma, sv.nombre, sv.cantidad, sv.precio, sv.descuento || 0, sv.subtotal]
         );
       }
       navigation.replace('ProformaDetail', { idproforma });
@@ -212,6 +271,7 @@ export default function ProformaFormScreen({ route, navigation }) {
         />
       </View>
 
+      {/* ── Artículos ── */}
       <Text style={styles.sectionTitle}>Artículos</Text>
       {items.map(item => (
         <View key={item.idarticulo} style={[styles.itemCard, STYLES.shadow]}>
@@ -259,6 +319,56 @@ export default function ProformaFormScreen({ route, navigation }) {
         <Text style={styles.btnAgregarText}>＋ Agregar artículo</Text>
       </TouchableOpacity>
 
+      {/* ── Servicios ── */}
+      <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Servicios adicionales</Text>
+      {servicios.map(sv => (
+        <View key={sv._key} style={[styles.itemCard, styles.servicioCard, STYLES.shadow]}>
+          <View style={styles.itemHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 6 }}>
+              <Text style={styles.itemNombre}>{sv.nombre}</Text>
+              <View style={styles.servicioBadge}><Text style={styles.servicioBadgeText}>SERVICIO</Text></View>
+            </View>
+            <TouchableOpacity onPress={() => quitarServicio(sv._key, sv.nombre)}>
+              <Text style={{ color: COLORS.danger, fontSize: 18 }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.itemRow}>
+            <View style={styles.itemField}>
+              <Text style={styles.itemLabel}>Cantidad</Text>
+              <TextInput style={styles.itemInput} value={String(sv.cantidad)}
+                onChangeText={v => actualizarServicio(sv._key, 'cantidad', parseFloat(v) || 0)}
+                keyboardType="numeric" placeholderTextColor={COLORS.textLight} />
+            </View>
+            <View style={styles.itemField}>
+              <Text style={styles.itemLabel}>Precio (Bs.)</Text>
+              <TextInput style={styles.itemInput} value={String(sv.precio)}
+                onChangeText={v => actualizarServicio(sv._key, 'precio', parseFloat(v) || 0)}
+                keyboardType="decimal-pad" placeholderTextColor={COLORS.textLight} />
+            </View>
+            <View style={styles.itemField}>
+              <Text style={styles.itemLabel}>Descuento %</Text>
+              <TextInput
+                style={[styles.itemInput, sv.descuento > 0 && styles.itemInputDescuento]}
+                value={String(sv.descuento)}
+                onChangeText={v => actualizarServicio(sv._key, 'descuento', Math.min(100, Math.max(0, parseFloat(v) || 0)))}
+                keyboardType="decimal-pad" placeholder="0" placeholderTextColor={COLORS.textLight} />
+            </View>
+          </View>
+          <View style={styles.itemSubtotalRow}>
+            {sv.descuento > 0 && (
+              <Text style={styles.itemDescuentoText}>
+                - Bs. {((parseFloat(sv.cantidad)||0)*(parseFloat(sv.precio)||0)*(parseFloat(sv.descuento)||0)/100).toFixed(2)} ({sv.descuento}% desc.)
+              </Text>
+            )}
+            <Text style={styles.itemSubtotal}>Subtotal: Bs. {Number(sv.subtotal).toFixed(2)}</Text>
+          </View>
+        </View>
+      ))}
+
+      <TouchableOpacity style={styles.btnAgregarServicio} onPress={() => setModalServicio(true)}>
+        <Text style={styles.btnAgregarServicioText}>＋ Agregar servicio</Text>
+      </TouchableOpacity>
+
       <View style={styles.totalContainer}>
         {totalDescuento > 0 && (
           <>
@@ -290,6 +400,7 @@ export default function ProformaFormScreen({ route, navigation }) {
         <Text style={styles.btnGuardarText}>{modoEdicion ? '💾 Actualizar Proforma' : '💾 Guardar Proforma'}</Text>
       </TouchableOpacity>
 
+      {/* ── Modal Clientes ── */}
       <Modal visible={modalClientes} animationType="slide" onRequestClose={() => setModalClientes(false)}>
         <View style={styles.modal}>
           <View style={styles.modalHeader}>
@@ -307,6 +418,7 @@ export default function ProformaFormScreen({ route, navigation }) {
         </View>
       </Modal>
 
+      {/* ── Modal Artículos ── */}
       <Modal visible={modalArticulos} animationType="slide" onRequestClose={() => setModalArticulos(false)}>
         <View style={styles.modal}>
           <View style={styles.modalHeader}>
@@ -329,6 +441,67 @@ export default function ProformaFormScreen({ route, navigation }) {
             )} />
         </View>
       </Modal>
+
+      {/* ── Modal Nuevo Servicio ── */}
+      <Modal visible={modalServicio} animationType="slide" transparent onRequestClose={() => setModalServicio(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalServicioContainer}>
+            <View style={styles.modalServicioHeader}>
+              <Text style={styles.modalServicioTitle}>Agregar Servicio</Text>
+              <TouchableOpacity onPress={() => setModalServicio(false)}>
+                <Text style={{ color: '#fff', fontSize: 20 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: 16 }}>
+              <Text style={styles.label}>Nombre del servicio *</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 12 }]}
+                value={nuevoServicio.nombre}
+                onChangeText={v => setNuevoServicio({ ...nuevoServicio, nombre: v })}
+                placeholder="Ej: Instalación, Soporte técnico..."
+                placeholderTextColor={COLORS.textLight}
+              />
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Cantidad</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={nuevoServicio.cantidad}
+                    onChangeText={v => setNuevoServicio({ ...nuevoServicio, cantidad: v })}
+                    keyboardType="numeric"
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Precio (Bs.) *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={nuevoServicio.precio}
+                    onChangeText={v => setNuevoServicio({ ...nuevoServicio, precio: v })}
+                    keyboardType="decimal-pad"
+                    placeholder="0.00"
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Descuento %</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={nuevoServicio.descuento}
+                    onChangeText={v => setNuevoServicio({ ...nuevoServicio, descuento: v })}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
+              </View>
+              <TouchableOpacity style={styles.btnGuardar} onPress={agregarServicio}>
+                <Text style={styles.btnGuardarText}>Agregar servicio</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -342,6 +515,7 @@ function makeStyles(C) {
     selectorPlaceholder: { fontSize: 14, color: C.textLight },
     selectorArrow: { color: C.textLight },
     itemCard: { backgroundColor: C.card, borderRadius: 8, padding: 10, marginBottom: 8 },
+    servicioCard: { borderLeftWidth: 3, borderLeftColor: '#7C3AED' },
     itemHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
     itemNombre: { fontSize: 14, fontWeight: '600', color: C.text, flex: 1 },
     itemRow: { flexDirection: 'row', gap: 8 },
@@ -353,8 +527,12 @@ function makeStyles(C) {
     itemDescuentoText: { fontSize: 11, color: C.danger, marginBottom: 1 },
     itemSubtotal: { fontSize: 13, fontWeight: 'bold', color: C.success },
     itemStock: { fontSize: 11, color: C.textLight, marginTop: 4 },
+    servicioBadge: { backgroundColor: '#EDE9FE', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
+    servicioBadgeText: { fontSize: 10, color: '#7C3AED', fontWeight: '700' },
     btnAgregarArticulo: { borderWidth: 1.5, borderColor: C.primary, borderStyle: 'dashed', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 12 },
+    btnAgregarServicio: { borderWidth: 1.5, borderColor: '#7C3AED', borderStyle: 'dashed', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 12 },
     btnAgregarText: { color: C.primary, fontWeight: '600', fontSize: 14 },
+    btnAgregarServicioText: { color: '#7C3AED', fontWeight: '600', fontSize: 14 },
     totalContainer: { backgroundColor: C.card, borderRadius: 8, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: C.border },
     totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
     totalLabel: { fontSize: 13, color: C.textLight },
@@ -375,5 +553,9 @@ function makeStyles(C) {
     modalItem: { padding: 14, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.card },
     modalItemText: { fontSize: 15, color: C.text, fontWeight: '500' },
     modalItemSub: { fontSize: 12, color: C.textLight, marginTop: 2 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalServicioContainer: { backgroundColor: C.bg, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+    modalServicioHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#7C3AED', borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+    modalServicioTitle: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
   });
 }

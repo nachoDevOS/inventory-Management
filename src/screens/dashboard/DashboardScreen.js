@@ -370,6 +370,32 @@ export default function DashboardScreen({ navigation }) {
           <Text style={styles.emptySub}>Las estadísticas aparecerán automáticamente cuando registres ventas.</Text>
         </View>
       )}
+
+      {/* ── Publicidad Solución Digital ── */}
+      <View style={styles.adCard}>
+        <View style={styles.adTop}>
+          <View style={styles.adLogoBox}>
+            <Text style={styles.adLogoText}>SD</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.adBrand}>Solución Digital</Text>
+            <Text style={styles.adTagline}>Transformamos tu negocio con tecnología</Text>
+          </View>
+        </View>
+        <View style={styles.adDivider} />
+        <Text style={styles.adDesc}>
+          ¿Necesitas una app para tu empresa? Desarrollamos sistemas a medida: inventarios, ventas, facturación y más.
+        </Text>
+        <View style={styles.adFeatures}>
+          <Text style={styles.adFeatureItem}>📱 Apps móviles</Text>
+          <Text style={styles.adFeatureItem}>🖥️ Sistemas web</Text>
+          <Text style={styles.adFeatureItem}>🗄️ Bases de datos</Text>
+        </View>
+        <View style={styles.adFooter}>
+          <Text style={styles.adWeb}>🌐 soluciondigital.dev</Text>
+        </View>
+      </View>
+
     </ScrollView>
   );
 }
@@ -452,5 +478,18 @@ function makeStyles(C) {
     empty: { alignItems:'center', paddingVertical:32, paddingHorizontal:16 },
     emptyTitle: { fontSize:16, fontWeight:'600', color: C.text, marginTop:14 },
     emptySub: { fontSize:13, color: C.textLight, textAlign:'center', marginTop:6, lineHeight:20 },
+    // Publicidad
+    adCard: { borderRadius:14, padding:16, marginBottom:8, backgroundColor:'#0F172A', borderWidth:1, borderColor:'#1E40AF' },
+    adTop: { flexDirection:'row', alignItems:'center', gap:12, marginBottom:12 },
+    adLogoBox: { width:44, height:44, borderRadius:10, backgroundColor:'#2563EB', alignItems:'center', justifyContent:'center' },
+    adLogoText: { color:'#fff', fontWeight:'900', fontSize:16 },
+    adBrand: { fontSize:16, fontWeight:'800', color:'#fff' },
+    adTagline: { fontSize:11, color:'#93C5FD', marginTop:2 },
+    adDivider: { height:1, backgroundColor:'#1E3A5F', marginBottom:12 },
+    adDesc: { fontSize:12, color:'#CBD5E1', lineHeight:18, marginBottom:12 },
+    adFeatures: { flexDirection:'row', gap:8, flexWrap:'wrap', marginBottom:12 },
+    adFeatureItem: { fontSize:11, color:'#93C5FD', backgroundColor:'#1E3A5F', paddingHorizontal:10, paddingVertical:4, borderRadius:20 },
+    adFooter: { alignItems:'center' },
+    adWeb: { fontSize:13, fontWeight:'700', color:'#60A5FA' },
   });
 }

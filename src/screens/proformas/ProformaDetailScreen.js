@@ -19,6 +19,7 @@ export default function ProformaDetailScreen({ route, navigation }) {
   const [proforma, setProforma] = useState(null);
   const [cliente, setCliente] = useState(null);
   const [items, setItems] = useState([]);
+  const [servicios, setServicios] = useState([]);
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [negocio, setNegocio] = useState({});
 
@@ -41,6 +42,10 @@ export default function ProformaDetailScreen({ route, navigation }) {
         WHERE pd.idproforma = ?
       `, [idproforma]);
       setItems(it);
+      const sv = await db.getAllAsync(
+        'SELECT * FROM proforma_servicios WHERE idproforma = ?', [idproforma]
+      );
+      setServicios(sv);
     }
   }, [idproforma]);
 
@@ -49,7 +54,7 @@ export default function ProformaDetailScreen({ route, navigation }) {
   const exportarPDF = async () => {
     setGenerandoPDF(true);
     try {
-      await generarYCompartirPDF({ proforma, cliente, items, negocio });
+      await generarYCompartirPDF({ proforma, cliente, items, servicios, negocio });
     } catch (e) {
       Alert.alert('Error', 'No se pudo generar el PDF');
     } finally {
@@ -57,10 +62,31 @@ export default function ProformaDetailScreen({ route, navigation }) {
     }
   };
 
+  const eliminarProforma = () => {
+    if (proforma?.estado === 'convertida') {
+      Alert.alert(
+        'No se puede eliminar',
+        'Esta proforma ya fue convertida a venta. Primero elimina la venta asociada y luego podrás eliminar la proforma.',
+        [{ text: 'Entendido' }]
+      );
+      return;
+    }
+    Alert.alert('Eliminar Proforma', '¿Seguro que quieres eliminar esta proforma?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar', style: 'destructive', onPress: async () => {
+          await db.runAsync('DELETE FROM proforma_detalle WHERE idproforma = ?', [idproforma]);
+          await db.runAsync('DELETE FROM proforma_servicios WHERE idproforma = ?', [idproforma]);
+          await db.runAsync('DELETE FROM proformas WHERE idproforma = ?', [idproforma]);
+          navigation.goBack();
+        }
+      }
+    ]);
+  };
+
   const convertirAVenta = async () => {
     if (proforma?.estado === 'convertida') { Alert.alert('Info', 'Esta proforma ya fue convertida a venta'); return; }
 
-    // Verificar stock actual en tiempo real antes de mostrar confirmación
     const stockActual = await db.getAllAsync(`
       SELECT pd.idarticulo, pd.cantidad, a.nombre,
         COALESCE((SELECT SUM(c.cantidad) FROM compras c WHERE c.idarticulo = pd.idarticulo), 0) -
@@ -84,7 +110,9 @@ export default function ProformaDetailScreen({ route, navigation }) {
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Confirmar', onPress: async () => {
-          const total = items.reduce((s, i) => s + i.subtotal, 0);
+          const totalItems = items.reduce((s, i) => s + i.subtotal, 0);
+          const totalServicios = servicios.reduce((s, sv) => s + sv.subtotal, 0);
+          const total = totalItems + totalServicios;
           const result = await db.runAsync(
             'INSERT INTO ventas (idproforma, idcliente, total, detalle) VALUES (?,?,?,?)',
             [idproforma, proforma.idcliente, total, proforma.detalle]
@@ -96,6 +124,12 @@ export default function ProformaDetailScreen({ route, navigation }) {
               [idventa, item.idarticulo, item.cantidad, item.precio_cotizacion, item.descuento || 0, item.subtotal]
             );
           }
+          for (const sv of servicios) {
+            await db.runAsync(
+              'INSERT INTO venta_servicios (idventa, nombre, cantidad, precio, descuento, subtotal) VALUES (?,?,?,?,?,?)',
+              [idventa, sv.nombre, sv.cantidad, sv.precio, sv.descuento || 0, sv.subtotal]
+            );
+          }
           await db.runAsync('UPDATE proformas SET estado = ? WHERE idproforma = ?', ['convertida', idproforma]);
           navigation.navigate('Ventas', { screen: 'VentaDetail', params: { idventa } });
         }
@@ -105,7 +139,9 @@ export default function ProformaDetailScreen({ route, navigation }) {
 
   if (!proforma || !cliente) return null;
 
-  const total = items.reduce((s, i) => s + i.subtotal, 0);
+  const totalItems = items.reduce((s, i) => s + i.subtotal, 0);
+  const totalServicios = servicios.reduce((s, sv) => s + sv.subtotal, 0);
+  const total = totalItems + totalServicios;
   const ec = ESTADO_COLOR[proforma.estado] || ESTADO_COLOR.pendiente;
 
   return (
@@ -123,28 +159,61 @@ export default function ProformaDetailScreen({ route, navigation }) {
         {proforma.detalle ? <InfoRow label="Detalle" value={proforma.detalle} S={styles} /> : null}
       </View>
 
-      <Text style={styles.sectionTitle}>Artículos</Text>
-      {items.map(item => {
-        const bruto = item.cantidad * item.precio_cotizacion;
-        const ahorrado = bruto - item.subtotal;
-        return (
-          <View key={item.iddetalle} style={[styles.itemCard, STYLES.shadow]}>
-            <Text style={styles.itemNombre}>{item.articulo_nombre}</Text>
-            <View style={styles.itemRow}>
-              <Text style={styles.itemSub}>Cant: {item.cantidad}</Text>
-              <Text style={styles.itemSub}>Precio: Bs. {Number(item.precio_cotizacion).toFixed(2)}</Text>
-              {item.descuento > 0 && (
-                <View style={styles.descuentoBadge}><Text style={styles.descuentoText}>{item.descuento}% desc.</Text></View>
-              )}
-            </View>
-            {item.descuento > 0 && <Text style={styles.ahorroText}>Ahorro: Bs. {ahorrado.toFixed(2)}</Text>}
-            <Text style={styles.itemSubtotal}>Subtotal: Bs. {Number(item.subtotal).toFixed(2)}</Text>
-          </View>
-        );
-      })}
+      {items.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Artículos</Text>
+          {items.map(item => {
+            const bruto = item.cantidad * item.precio_cotizacion;
+            const ahorrado = bruto - item.subtotal;
+            return (
+              <View key={item.iddetalle} style={[styles.itemCard, STYLES.shadow]}>
+                <Text style={styles.itemNombre}>{item.articulo_nombre}</Text>
+                <View style={styles.itemRow}>
+                  <Text style={styles.itemSub}>Cant: {item.cantidad}</Text>
+                  <Text style={styles.itemSub}>Precio: Bs. {Number(item.precio_cotizacion).toFixed(2)}</Text>
+                  {item.descuento > 0 && (
+                    <View style={styles.descuentoBadge}><Text style={styles.descuentoText}>{item.descuento}% desc.</Text></View>
+                  )}
+                </View>
+                {item.descuento > 0 && <Text style={styles.ahorroText}>Ahorro: Bs. {ahorrado.toFixed(2)}</Text>}
+                <Text style={styles.itemSubtotal}>Subtotal: Bs. {Number(item.subtotal).toFixed(2)}</Text>
+              </View>
+            );
+          })}
+        </>
+      )}
+
+      {servicios.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Servicios</Text>
+          {servicios.map(sv => {
+            const bruto = sv.cantidad * sv.precio;
+            const ahorrado = bruto - sv.subtotal;
+            return (
+              <View key={sv.idservicio} style={[styles.itemCard, styles.servicioCard, STYLES.shadow]}>
+                <View style={styles.itemRow}>
+                  <Text style={styles.itemNombre}>{sv.nombre}</Text>
+                  <View style={styles.servicioBadge}><Text style={styles.servicioBadgeText}>SERVICIO</Text></View>
+                </View>
+                <View style={styles.itemRow}>
+                  <Text style={styles.itemSub}>Cant: {sv.cantidad}</Text>
+                  <Text style={styles.itemSub}>Precio: Bs. {Number(sv.precio).toFixed(2)}</Text>
+                  {sv.descuento > 0 && (
+                    <View style={styles.descuentoBadge}><Text style={styles.descuentoText}>{sv.descuento}% desc.</Text></View>
+                  )}
+                </View>
+                {sv.descuento > 0 && <Text style={styles.ahorroText}>Ahorro: Bs. {ahorrado.toFixed(2)}</Text>}
+                <Text style={styles.itemSubtotal}>Subtotal: Bs. {Number(sv.subtotal).toFixed(2)}</Text>
+              </View>
+            );
+          })}
+        </>
+      )}
 
       {(() => {
-        const brutoTotal = items.reduce((s, i) => s + i.cantidad * i.precio_cotizacion, 0);
+        const brutoItems = items.reduce((s, i) => s + i.cantidad * i.precio_cotizacion, 0);
+        const brutoServ = servicios.reduce((s, sv) => s + sv.cantidad * sv.precio, 0);
+        const brutoTotal = brutoItems + brutoServ;
         const descuentoTotal = brutoTotal - total;
         return (
           <View style={styles.totalContainer}>
@@ -190,6 +259,10 @@ export default function ProformaDetailScreen({ route, navigation }) {
           <Text style={styles.convertidaText}>✅ Esta proforma fue convertida a venta</Text>
         </View>
       )}
+
+      <TouchableOpacity style={styles.btnEliminar} onPress={eliminarProforma}>
+        <Text style={styles.btnEliminarText}>🗑️ Eliminar Proforma</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -214,29 +287,31 @@ function makeStyles(C) {
     infoValue: { fontSize: 13, color: C.text, flex: 1 },
     sectionTitle: { fontSize: 15, fontWeight: 'bold', color: C.text, marginBottom: 8 },
     itemCard: { backgroundColor: C.card, borderRadius: 8, padding: 10, marginBottom: 6 },
-    itemNombre: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 4 },
+    servicioCard: { borderLeftWidth: 3, borderLeftColor: '#7C3AED' },
+    itemNombre: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 4, flex: 1 },
     itemRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 2 },
     itemSub: { fontSize: 12, color: C.textLight },
     descuentoBadge: { backgroundColor: '#FEE2E2', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
     descuentoText: { fontSize: 11, color: C.danger, fontWeight: '700' },
     ahorroText: { fontSize: 11, color: C.danger, marginBottom: 2 },
     itemSubtotal: { fontSize: 13, fontWeight: 'bold', color: C.success, marginTop: 2 },
+    servicioBadge: { backgroundColor: '#EDE9FE', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
+    servicioBadgeText: { fontSize: 10, color: '#7C3AED', fontWeight: '700' },
     totalContainer: { backgroundColor: C.card, borderRadius: 8, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: C.border },
     totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
     totalLabelSub: { fontSize: 13, color: C.textLight },
     totalValorSub: { fontSize: 13, color: C.textLight },
     totalLabel: { fontSize: 16, fontWeight: '600', color: C.text },
     totalValor: { fontSize: 20, fontWeight: 'bold', color: C.primary },
-    estadosRow: { flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' },
-    estadoBtn: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-    estadoBtnText: { fontSize: 13, fontWeight: '600' },
-    btnConvertir: { backgroundColor: C.success, borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 16 },
+    btnConvertir: { backgroundColor: C.success, borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 12 },
     btnConvertirText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    convertidaBadge: { backgroundColor: '#DCFCE7', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 16 },
+    convertidaBadge: { backgroundColor: '#DCFCE7', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 12 },
     convertidaText: { color: C.success, fontWeight: '600', fontSize: 14 },
     btnPDF: { backgroundColor: '#7C3AED', borderRadius: 10, padding: 13, alignItems: 'center', marginBottom: 12 },
     btnPDFText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
     btnEditar: { backgroundColor: C.card, borderRadius: 10, padding: 13, alignItems: 'center', marginBottom: 12, borderWidth: 1.5, borderColor: C.primary },
     btnEditarText: { color: C.primary, fontWeight: 'bold', fontSize: 15 },
+    btnEliminar: { borderWidth: 1, borderColor: C.danger, borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 16 },
+    btnEliminarText: { color: C.danger, fontWeight: '600', fontSize: 14 },
   });
 }

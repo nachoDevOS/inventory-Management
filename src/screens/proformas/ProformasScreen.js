@@ -26,7 +26,7 @@ export default function ProformasScreen({ navigation }) {
         COALESCE((SELECT SUM(pd.subtotal) FROM proforma_detalle pd WHERE pd.idproforma = p.idproforma), 0) as total
       FROM proformas p
       JOIN clientes c ON c.idcliente = p.idcliente
-      ORDER BY p.fecha DESC
+      ORDER BY p.idproforma DESC
     `);
     setProformas(rows);
   }, [db]);

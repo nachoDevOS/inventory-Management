@@ -102,6 +102,28 @@ export const initDatabase = async (db) => {
       FOREIGN KEY (idarticulo) REFERENCES articulos(idarticulo)
     );
 
+    CREATE TABLE IF NOT EXISTS proforma_servicios (
+      idservicio INTEGER PRIMARY KEY AUTOINCREMENT,
+      idproforma INTEGER NOT NULL,
+      nombre TEXT NOT NULL,
+      cantidad INTEGER NOT NULL DEFAULT 1,
+      precio REAL NOT NULL DEFAULT 0,
+      descuento REAL NOT NULL DEFAULT 0,
+      subtotal REAL NOT NULL DEFAULT 0,
+      FOREIGN KEY (idproforma) REFERENCES proformas(idproforma)
+    );
+
+    CREATE TABLE IF NOT EXISTS venta_servicios (
+      idservicio INTEGER PRIMARY KEY AUTOINCREMENT,
+      idventa INTEGER NOT NULL,
+      nombre TEXT NOT NULL,
+      cantidad INTEGER NOT NULL DEFAULT 1,
+      precio REAL NOT NULL DEFAULT 0,
+      descuento REAL NOT NULL DEFAULT 0,
+      subtotal REAL NOT NULL DEFAULT 0,
+      FOREIGN KEY (idventa) REFERENCES ventas(idventa)
+    );
+
     CREATE TABLE IF NOT EXISTS configuracion (
       clave TEXT PRIMARY KEY,
       valor TEXT

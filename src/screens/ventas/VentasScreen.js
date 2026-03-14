@@ -32,7 +32,7 @@ export default function VentasScreen({ navigation }) {
       SELECT v.*, c.nombre as cliente_nombre
       FROM ventas v JOIN clientes c ON c.idcliente=v.idcliente
       WHERE ${f.sql}
-      ORDER BY v.fecha DESC
+      ORDER BY v.idventa DESC
     `);
     setVentas(rows);
   }, [db, filtro]);
