@@ -40,14 +40,18 @@ export default function DashboardScreen({ navigation }) {
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [stockMinimo, setStockMinimo] = useState(3);
   const [negocio, setNegocio] = useState('Soluciones Tecnológicas');
+  const [negocioData, setNegocioData] = useState({});
 
   const cargar = useCallback(async () => {
     // Configuración
     const cfgMin = await db.getFirstAsync("SELECT valor FROM configuracion WHERE clave='stock_minimo'");
-    const cfgNeg = await db.getFirstAsync("SELECT valor FROM configuracion WHERE clave='nombre_negocio'");
+    const cfgRows = await db.getAllAsync("SELECT clave, valor FROM configuracion WHERE clave IN ('nombre_negocio','telefono','direccion','nit')");
+    const cfgMap = {};
+    cfgRows.forEach(r => { cfgMap[r.clave] = r.valor; });
     const minStock = parseInt(cfgMin?.valor || '3');
     setStockMinimo(minStock);
-    setNegocio(cfgNeg?.valor || 'Soluciones Tecnológicas');
+    setNegocio(cfgMap.nombre_negocio || 'Soluciones Tecnológicas');
+    setNegocioData(cfgMap);
 
     // Stats hoy
     const hoy = await db.getFirstAsync(`
@@ -371,6 +375,15 @@ export default function DashboardScreen({ navigation }) {
         </View>
       )}
 
+      {/* ── Footer negocio ── */}
+      <View style={styles.footerCard}>
+        <View style={styles.footerDivider} />
+        <Text style={styles.footerNegocio}>{negocio}</Text>
+        {negocioData.nit ? <Text style={styles.footerDato}>NIT: {negocioData.nit}</Text> : null}
+        {negocioData.direccion ? <Text style={styles.footerDato}>📍 {negocioData.direccion}</Text> : null}
+        {negocioData.telefono ? <Text style={styles.footerDato}>📞 {negocioData.telefono}</Text> : null}
+      </View>
+
       {/* ── Publicidad Solución Digital ── */}
       <View style={styles.adCard}>
         <View style={styles.adTop}>
@@ -478,6 +491,11 @@ function makeStyles(C) {
     empty: { alignItems:'center', paddingVertical:32, paddingHorizontal:16 },
     emptyTitle: { fontSize:16, fontWeight:'600', color: C.text, marginTop:14 },
     emptySub: { fontSize:13, color: C.textLight, textAlign:'center', marginTop:6, lineHeight:20 },
+    // Footer negocio
+    footerCard: { alignItems:'center', paddingVertical:16, paddingHorizontal:16, marginBottom:12 },
+    footerDivider: { height:1, backgroundColor: C.border, width:'100%', marginBottom:14 },
+    footerNegocio: { fontSize:15, fontWeight:'800', color: C.text, textAlign:'center' },
+    footerDato: { fontSize:12, color: C.textLight, marginTop:4, textAlign:'center' },
     // Publicidad
     adCard: { borderRadius:14, padding:16, marginBottom:8, backgroundColor:'#0F172A', borderWidth:1, borderColor:'#1E40AF' },
     adTop: { flexDirection:'row', alignItems:'center', gap:12, marginBottom:12 },
