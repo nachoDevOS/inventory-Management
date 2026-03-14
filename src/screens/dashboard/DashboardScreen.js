@@ -14,13 +14,14 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Dimensions, ActivityIndicator, Alert,
+  TouchableOpacity, Dimensions, ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { STYLES } from '../../theme';
 import { generarYCompartirReporte } from '../../utils/generarPdfReporte';
+import { verificarExpiracion } from '../../utils/licencia';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -41,6 +42,7 @@ export default function DashboardScreen({ navigation }) {
   const [stockMinimo, setStockMinimo] = useState(3);
   const [negocio, setNegocio] = useState('Soluciones Tecnológicas');
   const [negocioData, setNegocioData] = useState({});
+  const [licencia, setLicencia] = useState(null);
 
   const cargar = useCallback(async () => {
     // Configuración
@@ -52,6 +54,9 @@ export default function DashboardScreen({ navigation }) {
     setStockMinimo(minStock);
     setNegocio(cfgMap.nombre_negocio || 'Soluciones Tecnológicas');
     setNegocioData(cfgMap);
+
+    const exp = await verificarExpiracion(db);
+    setLicencia(exp);
 
     // Stats hoy
     const hoy = await db.getFirstAsync(`
@@ -208,8 +213,26 @@ export default function DashboardScreen({ navigation }) {
           <Text style={styles.headerTitle}>Panel de Control</Text>
           <Text style={styles.headerFecha}>{fechaHoy}</Text>
         </View>
-        <Text style={{ fontSize: 36 }}>📊</Text>
+        <Text style={{ fontSize: 26 }}>📊</Text>
       </View>
+
+      {/* ── Licencia ── */}
+      {licencia && (() => {
+        const d = licencia.diasRestantes;
+        const urgente = d <= 15;
+        const advertencia = d <= 30 && d > 15;
+        const bg = urgente ? '#FEF2F2' : advertencia ? '#FFF7ED' : '#F0FDF4';
+        const color = urgente ? '#DC2626' : advertencia ? '#D97706' : '#16A34A';
+        const icono = urgente ? '🔴' : advertencia ? '🟡' : '🟢';
+        return (
+          <View style={[styles.licenciaCard, { backgroundColor: bg, borderColor: color }]}>
+            <Text style={[styles.licenciaText, { color }]}>
+              {icono}  Licencia: <Text style={{ fontWeight: '800' }}>{d} día{d !== 1 ? 's' : ''} restante{d !== 1 ? 's' : ''}</Text>
+              {licencia.fechaExpiracion ? `  ·  vence ${licencia.fechaExpiracion}` : ''}
+            </Text>
+          </View>
+        );
+      })()}
 
       {/* ── Stats hoy ── */}
       <Text style={styles.sectionTitle}>Resumen de Hoy</Text>
@@ -405,7 +428,9 @@ export default function DashboardScreen({ navigation }) {
           <Text style={styles.adFeatureItem}>🗄️ Bases de datos</Text>
         </View>
         <View style={styles.adFooter}>
-          <Text style={styles.adWeb}>🌐 soluciondigital.dev</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://www.soluciondigital.dev')}>
+            <Text style={styles.adWeb}>🌐 soluciondigital.dev</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -426,9 +451,9 @@ function StatCard({ icon, label, value, color, styles }) {
 function makeStyles(C) {
   return StyleSheet.create({
     container: { flex:1, backgroundColor: C.bg },
-    header: { backgroundColor: C.primary, borderRadius:14, padding:18, marginBottom:16, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
-    headerTitle: { fontSize:22, fontWeight:'800', color:'#fff' },
-    headerFecha: { fontSize:12, color:'#BFDBFE', marginTop:3, textTransform:'capitalize' },
+    header: { backgroundColor: C.primary, borderRadius:10, padding:11, marginBottom:12, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
+    headerTitle: { fontSize:16, fontWeight:'800', color:'#fff' },
+    headerFecha: { fontSize:10, color:'#BFDBFE', marginTop:2, textTransform:'capitalize' },
     sectionTitle: { fontSize:14, fontWeight:'700', color: C.text, marginBottom:8, marginTop:4 },
     statsGrid: { flexDirection:'row', flexWrap:'wrap', gap:10, marginBottom:14 },
     statCard: { borderRadius:12, padding:14, alignItems:'center', width:'47%', backgroundColor: C.card },
@@ -491,6 +516,9 @@ function makeStyles(C) {
     empty: { alignItems:'center', paddingVertical:32, paddingHorizontal:16 },
     emptyTitle: { fontSize:16, fontWeight:'600', color: C.text, marginTop:14 },
     emptySub: { fontSize:13, color: C.textLight, textAlign:'center', marginTop:6, lineHeight:20 },
+    // Licencia
+    licenciaCard: { borderRadius: 8, borderWidth: 1, padding: 7, marginBottom: 14, alignItems: 'center' },
+    licenciaText: { fontSize: 11, fontWeight: '600' },
     // Footer negocio
     footerCard: { alignItems:'center', paddingVertical:16, paddingHorizontal:16, marginBottom:12 },
     footerDivider: { height:1, backgroundColor: C.border, width:'100%', marginBottom:14 },
