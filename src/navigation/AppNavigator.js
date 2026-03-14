@@ -111,7 +111,7 @@ export default function AppNavigator() {
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textLight,
-        tabBarStyle: { paddingBottom: 6, paddingTop: 4, height: 68 },
+        tabBarStyle: { paddingBottom: 16, paddingTop: 4, height: 78 },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 0 },
         tabBarIconStyle: { marginBottom: 0 },
       }}
