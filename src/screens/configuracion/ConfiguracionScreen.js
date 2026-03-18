@@ -11,7 +11,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Switch, Alert, ActivityIndicator
+  ScrollView, Switch, Alert, ActivityIndicator, Linking
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useTheme } from '../../context/ThemeContext';
@@ -259,7 +259,9 @@ export default function ConfiguracionScreen() {
       <View style={styles.creditos}>
         <Text style={styles.creditosApp}>Inventory Management v1.0</Text>
         <Text style={styles.creditosDev}>Desarrollado por Solución Digital</Text>
-        <Text style={styles.creditosUrl}>www.soluciondigital.dev</Text>
+        <TouchableOpacity onPress={() => Linking.openURL('https://www.soluciondigital.dev')}>
+          <Text style={styles.creditosUrl}>www.soluciondigital.dev</Text>
+        </TouchableOpacity>
       </View>
 
     </ScrollView>

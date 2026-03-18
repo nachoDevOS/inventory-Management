@@ -116,7 +116,9 @@ export default function LicenciaScreen({ onActivar }) {
         <View style={styles.contacto}>
           <Text style={styles.contactoTitle}>¿Necesitas una licencia?</Text>
           <Text style={styles.contactoText}>Contacta a Solución Digital</Text>
-          <Text style={styles.contactoUrl}>www.soluciondigital.dev</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://www.soluciondigital.dev')}>
+            <Text style={styles.contactoUrl}>www.soluciondigital.dev</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -153,7 +155,9 @@ export function LicenciaExpiradaScreen({ diasRestantes, fechaExpiracion, onRenov
         <View style={styles.contacto}>
           <Text style={styles.contactoTitle}>Renovar licencia:</Text>
           <Text style={styles.contactoText}>Solución Digital</Text>
-          <Text style={styles.contactoUrl}>www.soluciondigital.dev</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://www.soluciondigital.dev')}>
+            <Text style={styles.contactoUrl}>www.soluciondigital.dev</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
