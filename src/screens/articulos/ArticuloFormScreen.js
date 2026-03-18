@@ -77,7 +77,7 @@ export default function ArticuloFormScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16 }}>
 
       {/* ── Imagen ── */}
       <Text style={styles.label}>Imagen del Artículo</Text>

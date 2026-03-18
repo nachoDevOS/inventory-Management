@@ -39,7 +39,7 @@ export default function ClienteDetailScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16 }}>
       <View style={[styles.card, STYLES.shadow]}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{cliente.nombre[0].toUpperCase()}</Text>

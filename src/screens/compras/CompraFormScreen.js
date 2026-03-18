@@ -100,7 +100,7 @@ export default function CompraFormScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16 }}>
 
       {articulo && (
         <View style={styles.articuloInfo}>

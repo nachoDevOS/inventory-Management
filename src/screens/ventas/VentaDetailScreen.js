@@ -58,7 +58,7 @@ export default function VentaDetailScreen({ route, navigation }) {
   if (!venta || !cliente) return null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16 }}>
       <View style={[styles.card, STYLES.shadow]}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardId}>Venta #{venta.idventa}</Text>

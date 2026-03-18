@@ -122,7 +122,7 @@ export default function ConfiguracionScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
 
       {/* ── Apariencia ── */}
       <SectionHeader title="🎨 Apariencia" colors={COLORS} />

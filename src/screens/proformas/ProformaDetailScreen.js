@@ -148,7 +148,7 @@ export default function ProformaDetailScreen({ route, navigation }) {
   const ec = ESTADO_COLOR[proforma.estado] || ESTADO_COLOR.pendiente;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16 }}>
       <View style={[styles.card, STYLES.shadow]}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardId}>Proforma #{proforma.idproforma}</Text>

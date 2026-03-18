@@ -183,7 +183,7 @@ export default function VentaFormScreen({ navigation }) {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16 }}>
 
       {/* ── Cliente ── */}
       <Text style={styles.sectionTitle}>Cliente *</Text>

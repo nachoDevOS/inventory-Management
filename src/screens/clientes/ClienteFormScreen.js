@@ -37,7 +37,7 @@ export default function ClienteFormScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16 }}>
       <Campo label="Nombre *" value={form.nombre} onChangeText={v => set('nombre', v)} placeholder="Nombre completo" S={styles} C={COLORS} />
       <Campo label="Carnet de Identidad" value={form.carnet_identidad} onChangeText={v => set('carnet_identidad', v)} placeholder="CI" keyboardType="numeric" S={styles} C={COLORS} />
       <Campo label="Celular" value={form.celular} onChangeText={v => set('celular', v)} placeholder="Número de celular" keyboardType="phone-pad" S={styles} C={COLORS} />

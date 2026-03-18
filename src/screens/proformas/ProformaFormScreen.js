@@ -249,7 +249,7 @@ export default function ProformaFormScreen({ route, navigation }) {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16 }}>
       <Text style={styles.sectionTitle}>Cliente *</Text>
       <TouchableOpacity style={styles.selectorBtn} onPress={() => setModalClientes(true)}>
         <Text style={clienteSeleccionado ? styles.selectorSelected : styles.selectorPlaceholder}>

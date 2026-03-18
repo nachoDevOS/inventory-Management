@@ -22,7 +22,8 @@
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.nachodevos.inventorymanagement"
+      "package": "com.nachodevos.inventorymanagement",
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/favicon.png"

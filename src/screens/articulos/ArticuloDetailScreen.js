@@ -80,7 +80,7 @@ export default function ArticuloDetailScreen({ route, navigation }) {
   const totalComprado = compras.reduce((s, c) => s + c.cantidad, 0);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={styles.container} contentContainerStyle={{ padding: 16 }}>
 
       {/* ── INFO PRINCIPAL ── */}
       <View style={[styles.card, STYLES.shadow]}>
