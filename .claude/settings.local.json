@@ -12,7 +12,10 @@
       "Bash(node tools/generar-licencias.js 1 5)",
       "Bash(node tools/generar-licencias.js A1B2C3D4E5F6 1)",
       "Bash(npm --version)",
-      "Bash(ls /home/user/Escritorio/projects/inventory-Management/*.md)"
+      "Bash(ls /home/user/Escritorio/projects/inventory-Management/*.md)",
+      "Bash(grep -l \"TextInput\\\\|ScrollView\\\\|KeyboardAvoid\" \"c:/Users/Usuario/Desktop/projects/project/appMovil/src/screens/\"**/*.js)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)"
     ]
   }
 }
