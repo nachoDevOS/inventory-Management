@@ -38,6 +38,8 @@ export default function DashboardScreen({ navigation }) {
   const [ultimasVentas, setUltimasVentas] = useState([]);
   const [ventasMes, setVentasMes] = useState({ total: 0, count: 0 });
   const [gananciasMes, setGananciasMes] = useState(0);
+  const [ventasPorMes, setVentasPorMes] = useState([]);
+  const [topClientes, setTopClientes] = useState([]);
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [stockMinimo, setStockMinimo] = useState(3);
   const [negocio, setNegocio] = useState('Soluciones Tecnológicas');
@@ -137,6 +139,24 @@ export default function DashboardScreen({ navigation }) {
       ORDER BY stock ASC LIMIT 8
     `, [minStock]);
 
+    // Ventas por mes (últimos 6 meses)
+    const meses = await db.getAllAsync(`
+      SELECT strftime('%Y-%m', fecha, 'localtime') as mes,
+             COALESCE(SUM(total),0) as total, COUNT(*) as cantidad
+      FROM ventas
+      WHERE fecha >= DATE('now','localtime','-5 months','start of month')
+      GROUP BY mes ORDER BY mes ASC
+    `);
+
+    // Top 5 clientes
+    const clientes5 = await db.getAllAsync(`
+      SELECT c.idcliente, c.nombre,
+             COUNT(v.idventa) as total_compras,
+             COALESCE(SUM(v.total),0) as total_gastado
+      FROM ventas v JOIN clientes c ON c.idcliente = v.idcliente
+      GROUP BY v.idcliente ORDER BY total_gastado DESC LIMIT 5
+    `);
+
     // Últimas ventas del día
     const ultimas = await db.getAllAsync(`
       SELECT v.idventa, v.total, v.fecha, c.nombre as cliente_nombre
@@ -153,6 +173,8 @@ export default function DashboardScreen({ navigation }) {
     setTopArticulos(top);
     setStockBajoList(bajo);
     setUltimasVentas(ultimas);
+    setVentasPorMes(meses);
+    setTopClientes(clientes5);
   }, [db]);
 
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
@@ -200,6 +222,16 @@ export default function DashboardScreen({ navigation }) {
   });
   const maxVenta = Math.max(...dias7.map(d => d.total), 1);
   const maxTop = Math.max(...topArticulos.map(a => a.total_vendido), 1);
+  const maxCliente = Math.max(...topClientes.map(c => c.total_gastado), 1);
+
+  const MESES_NOMBRES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const meses6 = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(ahora.getFullYear(), ahora.getMonth() - (5 - i), 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const found = ventasPorMes.find(m => m.mes === key);
+    return { label: MESES_NOMBRES[d.getMonth()], total: found?.total||0, cantidad: found?.cantidad||0, esActual: i===5 };
+  });
+  const maxMes = Math.max(...meses6.map(m => m.total), 1);
   const fechaHoy = ahora.toLocaleDateString('es-BO', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
   const margenHoy = stats.ingresosHoy > 0 ? (gananciaHoy / stats.ingresosHoy) * 100 : 0;
   const margenMes = ventasMes.total > 0 ? (gananciasMes / ventasMes.total) * 100 : 0;
@@ -325,6 +357,56 @@ export default function DashboardScreen({ navigation }) {
           <Text style={styles.legendText}>Hoy · Número = ventas</Text>
         </View>
       </View>
+
+      {/* ── Gráfico por mes ── */}
+      <Text style={styles.sectionTitle}>📅 Ventas por mes (últimos 6 meses)</Text>
+      <View style={[styles.card, STYLES.shadow]}>
+        <View style={styles.barChart}>
+          {meses6.map((m, i) => (
+            <View key={i} style={styles.barCol}>
+              {m.total > 0 && <Text style={styles.barValue}>{m.total >= 1000 ? `${(m.total/1000).toFixed(1)}k` : m.total.toFixed(0)}</Text>}
+              <View style={styles.barWrapper}>
+                <View style={[styles.bar, { height: Math.max((m.total/maxMes)*100, m.total>0?6:0), backgroundColor: m.esActual ? COLORS.primary : COLORS.border }]} />
+              </View>
+              <Text style={[styles.barLabel, m.esActual && { color: COLORS.primary, fontWeight:'700' }]}>{m.label}</Text>
+              {m.cantidad > 0 && <Text style={styles.barCant}>{m.cantidad}</Text>}
+            </View>
+          ))}
+        </View>
+        <View style={styles.barLegend}>
+          <View style={[styles.legendDot, { backgroundColor: COLORS.border }]} />
+          <Text style={styles.legendText}>Meses anteriores</Text>
+          <View style={[styles.legendDot, { backgroundColor: COLORS.primary, marginLeft: 12 }]} />
+          <Text style={styles.legendText}>Mes actual · Número = ventas</Text>
+        </View>
+      </View>
+
+      {/* ── Top clientes ── */}
+      {topClientes.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>👑 Clientes que más compran</Text>
+          <View style={[styles.card, STYLES.shadow]}>
+            {topClientes.map((c, i) => (
+              <TouchableOpacity key={i}
+                onPress={() => navigation.navigate('Clientes', { screen:'ClienteDetail', params:{ idcliente: c.idcliente } })}
+              >
+                <View style={[styles.topRow, i < topClientes.length - 1 && styles.divider]}>
+                  <View style={styles.topLeft}>
+                    <Text style={styles.topRank}>#{i+1}</Text>
+                    <View style={{ flex:1 }}>
+                      <Text style={styles.topNombre} numberOfLines={1}>{c.nombre}</Text>
+                      <Text style={styles.topSub}>{c.total_compras} compra{c.total_compras!==1?'s':''} · Bs. {Number(c.total_gastado).toFixed(2)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.topBarBg}>
+                    <View style={[styles.topBar, { width:`${(c.total_gastado/maxCliente)*100}%`, backgroundColor: COLORS.success }]} />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
 
       {/* ── Top artículos ── */}
       {topArticulos.length > 0 && (

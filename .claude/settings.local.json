@@ -15,7 +15,8 @@
       "Bash(ls /home/user/Escritorio/projects/inventory-Management/*.md)",
       "Bash(grep -l \"TextInput\\\\|ScrollView\\\\|KeyboardAvoid\" \"c:/Users/Usuario/Desktop/projects/project/appMovil/src/screens/\"**/*.js)",
       "Bash(for f:*)",
-      "Bash(do echo:*)"
+      "Bash(do echo:*)",
+      "Bash(node -e \"require\\(''fs''\\).readFileSync\\(''c:/Users/Usuario/Desktop/projects/project/appMovil/src/screens/dashboard/DashboardScreen.js'', ''utf8''\\); console.log\\(''OK''\\)\")"
     ]
   }
 }
