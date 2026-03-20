@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, FlatList, Modal
+  ScrollView, Alert, FlatList, Modal, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useTheme } from '../../context/ThemeContext';
@@ -412,6 +412,7 @@ export default function VentaFormScreen({ navigation }) {
 
       {/* ── Modal Nuevo Servicio ── */}
       <Modal visible={modalServicio} animationType="slide" transparent onRequestClose={() => setModalServicio(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalServicioContainer}>
             <View style={styles.modalServicioHeader}>
@@ -469,6 +470,7 @@ export default function VentaFormScreen({ navigation }) {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
   );
